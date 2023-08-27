@@ -21,6 +21,8 @@ static char *colors[][3] = {
        [SchemeSel]  = { selfgcolor,  selbgcolor,  selbordercolor  },
 };
 
+
+
 /* tagging */
 static const char *tags[] = { "", "", "", "", "       ", "", "", "", "" }; /**/
 
@@ -42,6 +44,7 @@ static const Rule rules[] = {
 static const float mfact     = 0.55; /* factor of master area size [0.05..0.95] */
 static const int nmaster     = 1;    /* number of clients in master area */
 static const int resizehints = 1;    /* 1 means respect size hints in tiled resizals */
+static const int lockfullscreen = 0; /* 1 will force focus on the fullscreen window */
 
 static const Layout layouts[] = {
 	/* symbol     arrange function */
@@ -68,7 +71,7 @@ static const char *termcmd[]  = { "kitty", NULL };
 static const char *stcmd[]  = { "st", NULL };
 
 // Funtions
- void
+void
 togglefullscreen(const Arg *arg) {
     if(selmon->sel && ((selmon->sel->isfullscreen) || !(selmon->sel->isfloating))) {
         setfullscreen(selmon->sel, !selmon->sel->isfullscreen);
@@ -76,7 +79,6 @@ togglefullscreen(const Arg *arg) {
             arrange(selmon);
     }
 }
-
 
 static Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -95,7 +97,7 @@ static Key keys[] = {
 	{ MODKEY,                       XK_r,      setlayout,      {.v = &layouts[2]} },
 	{ MODKEY|ShiftMask,             XK_r,  	   quit,           {1} },
 	/* { MODKEY,                       XK_space,  	   setlayout,      {0} }, */
-	{ MODKEY,                       XK_space, togglefullscreen, {0} },
+	{ MODKEY,                      XK_space, togglefullscreen, {0} },
 	{ MODKEY,                       XK_p,  spawn,              {.v = dmenucmd } },
 	{ MODKEY,			            XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY|ShiftMask,			    XK_Return, spawn,          {.v = stcmd } },

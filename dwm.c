@@ -63,6 +63,7 @@
 #define HEIGHT(X)               ((X)->h + 2 * (X)->bw)
 #define TAGMASK                 ((1 << LENGTH(tags)) - 1)
 #define TEXTW(X)                (drw_fontset_getwidth(drw, (X)) + lrpad)
+// ORGINAL
 #define XRDB_LOAD_COLOR(R,V)    if (XrmGetResource(xrdb, R, NULL, &type, &value) == True) { \
                                   if (value.addr != NULL && strnlen(value.addr, 8) == 7 && value.addr[0] == '#') { \
                                     int i = 1; \
@@ -78,6 +79,8 @@
                                     } \
                                   } \
                                 }
+
+
 
 /* enums */
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
@@ -106,6 +109,7 @@ typedef struct {
 
 typedef struct Monitor Monitor;
 typedef struct Client Client;
+
 struct Client {
 	char name[256];
 	float mina, maxa;
@@ -122,6 +126,10 @@ struct Client {
 	Monitor *mon;
 	Window win;
 };
+
+
+
+
 
 typedef struct {
 	unsigned int mod;
@@ -156,6 +164,10 @@ struct Monitor {
 	Window barwin;
 	const Layout *lt[2];
 };
+
+
+
+
 
 typedef struct {
 	const char *class;
@@ -615,6 +627,8 @@ clientmessage(XEvent *e)
 			seturgent(c, 1);
 	}
 }
+
+
 
 void
 configure(Client *c)
@@ -1106,6 +1120,7 @@ killclient(const Arg *arg)
 	}
 }
 
+//HERE
 void
 loadxrdb()
 {

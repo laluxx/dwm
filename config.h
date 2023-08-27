@@ -33,7 +33,7 @@ static const Rule rules[] = {
 	{ "TelegramDesktop",    NULL,     NULL,           0,         1,          0,           0,        -1 },
 	{ "obs",                NULL,     NULL,           0,         1,          0,           0,        -1 },
 	{ "Lutris",             NULL,     NULL,           0,         1,          0,           0,        -1 },
-	{ "firefox",   		NULL,     NULL,           1 << 2,    0,          0,          -1,        -1 },
+	{ "firefox",   	    	NULL,     NULL,           1 << 2,    0,          0,          -1,        -1 },
 	{ "St",                 NULL,     NULL,           0,         0,          1,           0,        -1 },
 	{ NULL,                 NULL,     "Event Tester", 0,         0,          0,           1,        -1 }, /* xev */
 };
@@ -65,6 +65,18 @@ static const Layout layouts[] = {
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "dmrun"};
 static const char *termcmd[]  = { "kitty", NULL };
+static const char *stcmd[]  = { "st", NULL };
+
+// Funtions
+ void
+togglefullscreen(const Arg *arg) {
+    if(selmon->sel && ((selmon->sel->isfullscreen) || !(selmon->sel->isfloating))) {
+        setfullscreen(selmon->sel, !selmon->sel->isfullscreen);
+        if(!selmon->sel->isfullscreen)
+            arrange(selmon);
+    }
+}
+
 
 static Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -82,9 +94,11 @@ static Key keys[] = {
 	{ MODKEY,                       XK_e,      setlayout,      {.v = &layouts[1]} },
 	{ MODKEY,                       XK_r,      setlayout,      {.v = &layouts[2]} },
 	{ MODKEY|ShiftMask,             XK_r,  	   quit,           {1} },
-	{ MODKEY,                       XK_space,  	   setlayout,      {0} },
-	{ MODKEY,                       XK_p,  spawn,          {.v = dmenucmd } },
-	{ MODKEY,			XK_Return, spawn,          {.v = termcmd } },
+	/* { MODKEY,                       XK_space,  	   setlayout,      {0} }, */
+	{ MODKEY,                       XK_space, togglefullscreen, {0} },
+	{ MODKEY,                       XK_p,  spawn,              {.v = dmenucmd } },
+	{ MODKEY,			            XK_Return, spawn,          {.v = termcmd } },
+	{ MODKEY|ShiftMask,			    XK_Return, spawn,          {.v = stcmd } },
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
 	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },

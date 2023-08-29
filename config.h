@@ -42,7 +42,7 @@ static const Rule rules[] = {
 	 *	WM_NAME(STRING) = title
 	 */
 	/* class                instance  title           tags mask  isfloating  isterminal  noswallow  monitor */
-	{ "TelegramDesktop",    NULL,     NULL,           0,         1,          0,           0,        -1 },
+	/* { "TelegramDesktop",    NULL,     NULL,           0,         1,          0,           0,        -1 }, */
 	{ "obs",                NULL,     NULL,           0,         1,          0,           0,        -1 },
 	{ "Lutris",             NULL,     NULL,           0,         1,          0,           0,        -1 },
 	{ "firefox",   	    	NULL,     NULL,           1 << 2,    0,          0,          -1,        -1 },
@@ -56,11 +56,36 @@ static const int nmaster     = 1;    /* number of clients in master area */
 static const int resizehints = 1;    /* 1 means respect size hints in tiled resizals */
 static const int lockfullscreen = 0; /* 1 will force focus on the fullscreen window */
 
+// Funtions
+
+
+void
+truefullscreen(Monitor *m) {
+    Client *c;
+
+    for (c = m->clients; c; c = c->next) {
+        if (ISVISIBLE(c)) {
+            // Set the window to floating mode
+            c->isfloating = 1;
+
+            // Move and resize the window to cover the entire screen
+            XMoveResizeWindow(dpy, c->win, m->mx, m->my, m->mw, m->mh);
+
+            // Hide borders
+            c->bw = 0;
+            XConfigureWindow(dpy, c->win, CWBorderWidth, &(XWindowChanges){.border_width = c->bw});
+        }
+    }
+}
+
+
+
 static const Layout layouts[] = {
 	/* symbol     arrange function */
 	{ "[]=",      tile },    /* first entry is default */
 	{ "><>",      NULL },    /* no layout function means floating behavior */
 	{ "[M]",      monocle },
+	{ "[T]",    truefullscreen },
 };
 
 /* key definitions */
@@ -80,16 +105,6 @@ static const char *dmenucmd[] = { "dmrun"};
 static const char *termcmd[]  = { "kitty", NULL };
 static const char *stcmd[]  = { "st", NULL };
 
-// Funtions
-void
-togglefullscreen(const Arg *arg) {
-    if(selmon->sel && ((selmon->sel->isfullscreen) || !(selmon->sel->isfloating))) {
-        setfullscreen(selmon->sel, !selmon->sel->isfullscreen);
-        if(!selmon->sel->isfullscreen)
-            arrange(selmon);
-    }
-}
-
 #include "movestack.c"
 static Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -99,6 +114,8 @@ static Key keys[] = {
 	{ MODKEY,                       XK_h,      setmfact,       {.f = -0.05} },
 	{ MODKEY|ShiftMask,             XK_j,      movestack,      {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_k,      movestack,      {.i = -1 } },
+	{ MODKEY|ShiftMask,             XK_h,      cyclelayout,    {.i = -1 } }, // Go to the previous layout
+    { MODKEY|ShiftMask,             XK_l,      cyclelayout,    {.i = +1 } }, // Go to the next layout
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
 	{ MODKEY,                       XK_t,	   togglefloating, {0} },
 	{ MODKEY,                  XK_BackSpace,   zoom,           {0} },
@@ -110,7 +127,7 @@ static Key keys[] = {
 	{ MODKEY,                       XK_r,      setlayout,      {.v = &layouts[2]} },
 	{ MODKEY|ShiftMask,             XK_r,  	   quit,           {1} },
 	/* { MODKEY,                       XK_space,  	   setlayout,      {0} }, */
-	{ MODKEY,                      XK_space, togglefullscreen, {0} },
+	{ MODKEY,                       XK_space, toggletruefullscreen, {0} },
 	{ MODKEY,                       XK_p,  spawn,              {.v = dmenucmd } },
 	{ MODKEY,			            XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY|ShiftMask,			    XK_Return, spawn,          {.v = stcmd } },
@@ -137,8 +154,6 @@ static Key keys[] = {
 	{ MODKEY|ShiftMask,		XK_q,      quit,           {0} },
 };
 
-/* button definitions */
-/* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
 static Button buttons[] = {
 	/* click                event mask      button          function        argument */
 	{ ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
@@ -152,5 +167,9 @@ static Button buttons[] = {
 	{ ClkTagBar,            0,              Button3,        toggleview,     {0} },
 	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
 	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
-};
+	{ ClkRootWin,           MODKEY,         Button4,        view,           {0} }, // Added for Scroll Up
+	{ ClkRootWin,           MODKEY,         Button5,        view,           {0} }, // Added for Scroll Down
+	{ ClkClientWin,         MODKEY,         Button4,        view,           {0} },
+	{ ClkClientWin,         MODKEY,         Button5,        view,           {0} },
 
+};

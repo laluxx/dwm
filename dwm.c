@@ -50,6 +50,7 @@
 
 #include "drw.h"
 #include "util.h"
+#include "math.h"
 
 static int movement_direction = 0;  // 0: no movement, 1: right, -1: left
 
@@ -124,7 +125,7 @@ struct Client {
 	int basew, baseh, incw, inch, maxw, maxh, minw, minh;
 	int bw, oldbw;
 	unsigned int tags;
-	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen, isterminal, noswallow;
+	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen, istruefullscreen, isterminal, noswallow;
 	pid_t pid;
 	Client *next;
 	Client *snext;
@@ -289,6 +290,11 @@ static void xrdb(const Arg *arg);
 static void zoom(const Arg *arg);
 static void autostart_exec(void);
 
+// PERSONAL FUNCTIONS
+static void cyclelayout(const Arg *arg);
+void toggletruefullscreen(const Arg *arg);
+
+
 static pid_t getparentprocess(pid_t p);
 static int isdescprocess(pid_t p, pid_t c);
 static Client *swallowingclient(Window w);
@@ -331,6 +337,10 @@ static Window root, wmcheckwin;
 
 static xcb_connection_t *xcon;
 
+const Layout *lastlayout = NULL;
+
+
+
 /* configuration, allows nested code to access above variables */
 #include "config.h"
 
@@ -340,6 +350,45 @@ struct NumTags { char limitexceeded[LENGTH(tags) > 31 ? -1 : 1]; };
 /* dwm will keep pid's of processes from autostart array and kill them at quit */
 static pid_t *autostart_pids;
 static size_t autostart_len;
+
+
+// PERSONAL FUNCTIONS
+
+void
+cyclelayout(const Arg *arg) {
+    Layout *l;
+    for (l = (Layout *)layouts; l != selmon->lt[selmon->sellt]; l++);
+
+    if (arg->i > 0) {
+        if ((l + 1)->symbol)
+            setlayout(&((Arg) {.v = l + 1 }));
+        else
+            setlayout(&((Arg) {.v = layouts }));
+    } else {
+        if (l != layouts)
+            setlayout(&((Arg) {.v = l - 1 }));
+        else
+            setlayout(&((Arg) {.v = &layouts[LENGTH(layouts) - 1] }));
+    }
+}
+
+
+
+void
+toggletruefullscreen(const Arg *arg) {
+    if (selmon->lt[selmon->sellt] != &layouts[4]) {
+        lastlayout = selmon->lt[selmon->sellt];
+        setlayout(&((Arg) { .v = &layouts[4] }));
+    } else if (lastlayout) {
+        selmon->showbar = 1; // Show the bar
+        updatebarpos(selmon); // Update the bar position
+        setlayout(&((Arg) { .v = lastlayout }));
+        arrange(selmon);  // Rearrange windows to reflect the bar's presence
+    }
+}
+
+
+
 
 /* execute command from autostart array */
 static void
@@ -1331,7 +1380,6 @@ monocle(Monitor *m)
 	for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
 		resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0);
 }
-
 
 
 

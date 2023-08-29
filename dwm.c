@@ -51,6 +51,11 @@
 #include "drw.h"
 #include "util.h"
 
+static int movement_direction = 0;  // 0: no movement, 1: right, -1: left
+
+int clientsInTag(unsigned int tagmask);
+
+
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define CLEANMASK(mask)         (mask & ~(numlockmask|LockMask) & (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
@@ -1855,23 +1860,114 @@ seturgent(Client *c, int urg)
 	XFree(wmh);
 }
 
-void
-showhide(Client *c)
-{
-	if (!c)
-		return;
-	if (ISVISIBLE(c)) {
-		/* show clients top down */
-		XMoveWindow(dpy, c->win, c->x, c->y);
-		if (!c->mon->lt[c->mon->sellt]->arrange || c->isfloating)
-			resize(c, c->x, c->y, c->w, c->h, 0);
-		showhide(c->snext);
-	} else {
-		/* hide clients bottom up */
-		showhide(c->snext);
-		XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y);
-	}
+// ORIGINAL
+/* void */
+/* showhide(Client *c) */
+/* { */
+/* 	if (!c) */
+/* 		return; */
+/* 	if (ISVISIBLE(c)) { */
+/* 		/\* show clients top down *\/ */
+/* 		XMoveWindow(dpy, c->win, c->x, c->y); */
+/* 		if (!c->mon->lt[c->mon->sellt]->arrange || c->isfloating) */
+/* 			resize(c, c->x, c->y, c->w, c->h, 0); */
+/* 		showhide(c->snext); */
+/* 	} else { */
+/* 		/\* hide clients bottom up *\/ */
+/* 		showhide(c->snext); */
+/* 		XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
+/* 	} */
+/* } */
+
+
+int totalWidthOfClientsOnTag(unsigned int tagmask) {
+    int totalWidth = 0;
+    Client *c;
+    for (c = selmon->clients; c; c = c->next)
+        if (c->tags & tagmask)
+            totalWidth += WIDTH(c) + 10;  // Added 5 pixel buffer
+    return totalWidth;
 }
+
+// V2
+/* void showhide(Client *c) { */
+/*     if (!c) */
+/*         return; */
+
+/*     unsigned int currentTag = selmon->tagset[!selmon->seltags]; */
+/*     unsigned int targetTag = selmon->tagset[selmon->seltags]; */
+/*     int numClientsOnCurrentTag = numberOfVisibleClientsOnTag(currentTag); */
+/*     int numClientsOnTargetTag = numberOfVisibleClientsOnTag(targetTag); */
+/*     int totalWidthCurrentTag = totalWidthOfClientsOnTag(currentTag); */
+
+/*     if ((c->tags & targetTag)) { */
+/*         if (numClientsOnTargetTag <= 1) { */
+/*             XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y); */
+/*             showhide(c->snext); */
+/*             XMoveWindow(dpy, c->win, c->x, c->y); */
+/*         } else { */
+/*             // Slide into view with extended logic for multiple windows */
+/*             XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y); */
+/*             showhide(c->snext); */
+/*             XMoveWindow(dpy, c->win, c->x, c->y); */
+/*         } */
+/*     } else if ((c->tags & currentTag)) { */
+/*         if (numClientsOnCurrentTag <= 1) { */
+/*             XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y); */
+/*         } else { */
+/*             // Slide out of view with extended logic for multiple windows */
+/*             XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y); */
+/*         } */
+/*     } else { */
+/*         // Push the window far away to make sure it's out of view */
+/*         XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
+/*     } */
+/*     showhide(c->snext); */
+/* } */
+
+void showhide(Client *c) {
+    if (!c)
+        return;
+
+    unsigned int currentTag = selmon->tagset[!selmon->seltags];
+    unsigned int targetTag = selmon->tagset[selmon->seltags];
+    int numClientsOnCurrentTag = numberOfVisibleClientsOnTag(currentTag);
+    int numClientsOnTargetTag = numberOfVisibleClientsOnTag(targetTag);
+    int totalWidthCurrentTag = totalWidthOfClientsOnTag(currentTag);
+
+    if ((c->tags & targetTag)) {
+        if (numClientsOnTargetTag == 1 && c->isfloating && WIDTH(c) < selmon->ww/4) {
+            XMoveWindow(dpy, c->win, c->x + movement_direction * (selmon->ww - 10), c->y);
+            showhide(c->snext);
+            XMoveWindow(dpy, c->win, c->x, c->y);
+        } else if (numClientsOnTargetTag <= 1) {
+            XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y);
+            showhide(c->snext);
+            XMoveWindow(dpy, c->win, c->x, c->y);
+        } else {
+            // Slide into view with extended logic for multiple windows
+            XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y);
+            showhide(c->snext);
+            XMoveWindow(dpy, c->win, c->x, c->y);
+        }
+    } else if ((c->tags & currentTag)) {
+        if (numClientsOnCurrentTag <= 1) {
+            XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y);
+        } else {
+            // Slide out of view with extended logic for multiple windows
+            XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y);
+        }
+    } else {
+        // Push the window far away to make sure it's out of view
+        XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y);
+    }
+    showhide(c->snext);
+}
+
+
+
+
+
 
 void
 sigchld(int unused)
@@ -1956,6 +2052,7 @@ tile(Monitor *m)
 			ty += HEIGHT(c) + m->gappx;
 		}
 }
+
 
 void
 togglebar(const Arg *arg)
@@ -2319,19 +2416,62 @@ updatewmhints(Client *c)
 		XFree(wmh);
 	}
 }
+// ORIGINAL
+/* void */
+/* view(const Arg *arg) */
+/* { */
+/* 	if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags]) */
+/* 		return; */
+/* 	selmon->seltags ^= 1; /\* toggle sel tagset *\/ */
+/* 	if (arg->ui & TAGMASK) */
+/* 		selmon->tagset[selmon->seltags] = arg->ui & TAGMASK; */
+/* 	focus(NULL); */
+/* 	arrange(selmon); */
+/* 	updatecurrentdesktop(); */
+/* } */
 
-void
-view(const Arg *arg)
-{
-	if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
-		return;
-	selmon->seltags ^= 1; /* toggle sel tagset */
-	if (arg->ui & TAGMASK)
-		selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
-	focus(NULL);
-	arrange(selmon);
-	updatecurrentdesktop();
+void view(const Arg *arg) {
+    if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
+        return;
+
+    int previousTagIndex = selmon->seltags;
+    selmon->seltags ^= 1;  /* toggle sel tagset */
+
+    if (arg->ui & TAGMASK)
+        selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+
+    // Correct the movement direction based on tags
+    if (selmon->seltags < previousTagIndex)
+        movement_direction = 1;  // Moving to a higher tag
+    else if (selmon->seltags > previousTagIndex)
+        movement_direction = -1; // Moving to a lower tag
+
+    focus(NULL);
+    arrange(selmon);
 }
+
+
+
+// ADDED
+int clientsInTag(unsigned int tagmask) {
+    Client *c;
+    for (c = selmon->clients; c; c = c->next)
+        if (c->tags & tagmask)
+            return 1;
+    return 0;
+}
+
+// ADDED
+int numberOfVisibleClientsOnTag(unsigned int tagmask) {
+    int count = 0;
+    Client *c;
+    for (c = selmon->clients; c; c = c->next)
+        if (c->tags & tagmask)
+            count++;
+    return count;
+}
+
+
 
 pid_t
 winpid(Window w)

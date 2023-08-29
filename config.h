@@ -23,12 +23,14 @@ static char *colors[][3] = {
 
 
 static const char *autostart[][4] = {
-    { "unclutter", NULL, NULL },
-	{ "sh", "-c", "xset r rate 160 60", NULL },
-    { "sh", "-c", "xrandr --output \"$(xrandr | awk '/ connected/ {print $1; exit}')\" --mode 1920x1080 --rate 144" },
-    { "wal", "-R", "-q" },
-    { NULL, NULL, NULL } /* terminate */
+    { "unclutter", NULL, NULL, NULL },
+    { "sh", "-c", "xset r rate 160 60", NULL },
+    { "sh", "-c", "xrandr --output \"$(xrandr | awk '/ connected/ {print $1; exit}')\" --mode 1920x1080 --rate 144", NULL },
+    { "wal", "-R", "-q", NULL },
+    { "picom", NULL, NULL, NULL },
+    { NULL, NULL, NULL, NULL } /* terminate */
 };
+
 
 
 /* tagging */

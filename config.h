@@ -59,14 +59,33 @@ static const int lockfullscreen = 0; /* 1 will force focus on the fullscreen win
 // Funtions
 
 
-void
-truefullscreen(Monitor *m) {
+/* void */
+/* truefullscreen(Monitor *m) { */
+/*     Client *c; */
+
+/*     for (c = m->clients; c; c = c->next) { */
+/*         if (ISVISIBLE(c)) { */
+/*             // Set the window to floating mode */
+/*             c->isfloating = 1; */
+
+/*             // Move and resize the window to cover the entire screen */
+/*             XMoveResizeWindow(dpy, c->win, m->mx, m->my, m->mw, m->mh); */
+
+/*             // Hide borders */
+/*             c->bw = 0; */
+/*             XConfigureWindow(dpy, c->win, CWBorderWidth, &(XWindowChanges){.border_width = c->bw}); */
+/*         } */
+/*     } */
+/* } */
+
+void truefullscreen(Monitor *m) {
     Client *c;
 
     for (c = m->clients; c; c = c->next) {
         if (ISVISIBLE(c)) {
             // Set the window to floating mode
             c->isfloating = 1;
+            c->istruefullscreen = 1;  // Add this line
 
             // Move and resize the window to cover the entire screen
             XMoveResizeWindow(dpy, c->win, m->mx, m->my, m->mw, m->mh);
@@ -77,6 +96,7 @@ truefullscreen(Monitor *m) {
         }
     }
 }
+
 
 
 

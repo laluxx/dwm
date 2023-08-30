@@ -36,38 +36,19 @@ static const char *autostart[][4] = {
 /* tagging */
 static const char *tags[] = { "", "", "", "", "       ", "", "", "", "" }; /**/
 
-// ORIGINAL
-/* static const Rule rules[] = { */
-/* 	/\* xprop(1): */
-/* 	 *	WM_CLASS(STRING) = instance, class */
-/* 	 *	WM_NAME(STRING) = title */
-/* 	 *\/ */
-/* 	/\* class                instance  title           tags mask  isfloating  isterminal  noswallow  monitor *\/ */
-/* 	/\* { "TelegramDesktop",    NULL,     NULL,           0,         1,          0,           0,        -1 }, *\/ */
-/* 	{ "obs",                NULL,     NULL,           0,         1,          0,           0,        -1 }, */
-/* 	{ "Lutris",             NULL,     NULL,           0,         1,          0,           0,        -1 }, */
-/* 	{ "firefox",   	    	NULL,     NULL,           1 << 2,    0,          0,          -1,        -1 }, */
-/* 	{ "St",                 NULL,     NULL,           0,         0,          1,           0,        -1 }, */
-/* 	{ NULL,                 NULL,     "Event Tester", 0,         0,          0,           1,        -1 }, /\* xev *\/ */
-/* }; */
-
-// SCRATCHPAD PATCH
 static const Rule rules[] = {
 	/* xprop(1):
 	 *	WM_CLASS(STRING) = instance, class
 	 *	WM_NAME(STRING) = title
 	 */
-	/* class            instance  title           tags mask  isfloating  isterminal  noswallow  monitor   scratch key */
-	{ "obs",            NULL,     NULL,           0,         1,          0,          0,         -1,        0  },
-	{ "Lutris",         NULL,     NULL,           0,         1,          0,          0,         -1,        0  },
-	{ "firefox",        NULL,     NULL,           1 << 2,    0,          0,          -1,        -1,        0  },
-	{ "St",             NULL,     NULL,           0,         0,          1,          0,         -1,        0  },
-	{ NULL,             NULL,     "Event Tester", 0,         0,          0,          1,         -1,        0  }, /* xev */
-	{ "Gimp",           NULL,     NULL,           0,         1,          0,          0,         -1,        0  },
-	{ NULL,             NULL,     "scratchpad",   0,         1,          0,          0,         -1,       's' },
+	/* class                instance  title           tags mask  isfloating  isterminal  noswallow  monitor */
+	/* { "TelegramDesktop",    NULL,     NULL,           0,         1,          0,           0,        -1 }, */
+	{ "obs",                NULL,     NULL,           0,         1,          0,           0,        -1 },
+	{ "Lutris",             NULL,     NULL,           0,         1,          0,           0,        -1 },
+	{ "firefox",   	    	NULL,     NULL,           1 << 2,    0,          0,          -1,        -1 },
+	{ "St",                 NULL,     NULL,           0,         0,          1,           0,        -1 },
+	{ NULL,                 NULL,     "Event Tester", 0,         0,          0,           1,        -1 }, /* xev */
 };
-
-
 
 /* layout(s) */
 static const float mfact     = 0.55; /* factor of master area size [0.05..0.95] */
@@ -144,10 +125,6 @@ static const char *dmenucmd[] = { "dmrun"};
 static const char *termcmd[]  = { "kitty", NULL };
 static const char *stcmd[]  = { "st", NULL };
 
-/*First arg only serves to match against key in rules*/
-static const char *scratchpadcmd[] = {"s", "st", "-t", "scratchpad", NULL};
-
-
 #include "movestack.c"
 static Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -159,7 +136,6 @@ static Key keys[] = {
 	{ MODKEY|ShiftMask,             XK_k,      movestack,      {.i = -1 } },
 	{ MODKEY|ShiftMask,             XK_h,      cyclelayout,    {.i = -1 } }, // Go to the previous layout
     { MODKEY|ShiftMask,             XK_l,      cyclelayout,    {.i = +1 } }, // Go to the next layout
-    { MODKEY,                       XK_grave,  togglescratch,  {.v = scratchpadcmd } }, // Go to the next layout
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
 	{ MODKEY,                       XK_t,	   togglefloating, {0} },
 	{ MODKEY,                  XK_BackSpace,   zoom,           {0} },

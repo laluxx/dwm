@@ -80,9 +80,9 @@ static const int nmaster     = 1;    /* number of clients in master area */
 static const int resizehints = 1;    /* 1 means respect size hints in tiled resizals */
 static const int lockfullscreen = 0; /* 1 will force focus on the fullscreen window */
 
+
+
 // Funtions
-
-
 /* void */
 /* truefullscreen(Monitor *m) { */
 /*     Client *c; */
@@ -180,6 +180,8 @@ static Key keys[] = {
 	{ MODKEY,                       XK_p,  spawn,              {.v = dmenucmd } },
 	{ MODKEY,			            XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY|ShiftMask,			XK_Return, spawn,          {.v = stcmd } },
+    { MODKEY,                       XK_o,      toggleborder, {0} },
+    { MODKEY|ShiftMask,             XK_o,      toggleborder, {.ui = ShiftMask} },
 	{ MODKEY,			            XK_z,      spawn,          {.v = zoomcmd } },
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },

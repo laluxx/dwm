@@ -301,6 +301,8 @@ int numberOfFloatingClientsOnTag(unsigned int tag);
 static void cyclelayout(const Arg *arg);
 void toggletruefullscreen(const Arg *arg);
 int numberOfVisibleClientsOnTag(unsigned int tag);
+static void toggleborder(const Arg *arg);
+
 
 
 
@@ -348,9 +350,11 @@ static Window root, wmcheckwin;
 
 static xcb_connection_t *xcon;
 
+/* personal variables */
 const Layout *lastlayout = NULL;
-
 static unsigned int previousTag = 0;  // Assuming 0 is an invalid/non-existent tag
+static int globalBorderToggled = 0;
+
 
 
 /* configuration, allows nested code to access above variables */
@@ -1360,7 +1364,8 @@ manage(Window w, XWindowAttributes *wa)
 	/* only fix client y-offset, if the client center might cover the bar */
 	c->y = MAX(c->y, ((c->mon->by == c->mon->my) && (c->x + (c->w / 2) >= c->mon->wx)
 		&& (c->x + (c->w / 2) < c->mon->wx + c->mon->ww)) ? bh : c->mon->my);
-	c->bw = borderpx;
+	/* c->bw = borderpx; */
+	c->bw = globalBorderToggled ? 0 : borderpx;
 
 	wc.border_width = c->bw;
 	XConfigureWindow(dpy, w, CWBorderWidth, &wc);
@@ -2972,6 +2977,43 @@ void view(const Arg *arg) {
         movement_direction = -1; // Moving to a lower tag
 
     focus(NULL);
+    arrange(selmon);
+}
+
+// ADDED
+/* void */
+/* toggleborder(const Arg *arg) { */
+/*     if (!selmon->sel) */
+/*         return; */
+
+/*     if (arg->ui & ShiftMask) { */
+/*         // Toggle borders globally across all windows */
+/*         for (Client *c = selmon->clients; c; c = c->next) { */
+/*             c->bw = c->bw == 0 ? borderpx : 0; */
+/*         } */
+/*     } else { */
+/*         // Toggle border for the focused window only */
+/*         selmon->sel->bw = selmon->sel->bw == 0 ? borderpx : 0; */
+/*     } */
+
+/*     arrange(selmon); */
+/* } */
+
+void toggleborder(const Arg *arg) {
+    if (!selmon->sel) return;
+
+    // Toggle the global border state
+    if (arg->ui & ShiftMask) {
+        globalBorderToggled = !globalBorderToggled;
+        for (Client *c = selmon->clients; c; c = c->next) {
+            c->bw = globalBorderToggled ? 0 : borderpx;
+            configure(c);  // Apply changes immediately
+        }
+    } else {
+        // Toggle border for the focused window only
+        selmon->sel->bw = selmon->sel->bw == 0 ? borderpx : 0;
+    }
+
     arrange(selmon);
 }
 

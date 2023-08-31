@@ -32,6 +32,8 @@ static const char *autostart[][4] = {
 };
 
 
+/*First arg only serves to match against key in rules*/
+static const char *scratchpadcmd[] = {"s", "st", "-t", "scratchpad", NULL};
 
 /* tagging */
 static const char *tags[] = { "", "", "", "", "       ", "", "", "", "" }; /**/
@@ -61,6 +63,9 @@ static const Rule rules[] = {
 	{ "obs",            NULL,     NULL,           0,         1,          0,          0,         -1,        0  },
 	{ "Lutris",         NULL,     NULL,           0,         1,          0,          0,         -1,        0  },
 	{ "firefox",        NULL,     NULL,           1 << 2,    0,          0,          -1,        -1,        0  },
+	{ "discord",        NULL,     NULL,           1 << 3,    0,          0,          -1,        -1,        0  },
+	{ "emacs",          NULL,     NULL,           1 << 0,    0,          0,          -1,        -1,        0  },
+	{ "mpv",            NULL,     NULL,           1 << 5,    0,          0,          -1,        -1,        0  },
 	{ "St",             NULL,     NULL,           0,         0,          1,          0,         -1,        0  },
 	{ NULL,             NULL,     "Event Tester", 0,         0,          0,          1,         -1,        0  }, /* xev */
 	{ "Gimp",           NULL,     NULL,           0,         1,          0,          0,         -1,        0  },
@@ -144,8 +149,7 @@ static const char *dmenucmd[] = { "dmrun"};
 static const char *termcmd[]  = { "kitty", NULL };
 static const char *stcmd[]  = { "st", NULL };
 
-/*First arg only serves to match against key in rules*/
-static const char *scratchpadcmd[] = {"s", "st", "-t", "scratchpad", NULL};
+
 
 
 #include "movestack.c"

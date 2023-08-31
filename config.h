@@ -148,6 +148,7 @@ static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() 
 static const char *dmenucmd[] = { "dmrun"};
 static const char *termcmd[]  = { "kitty", NULL };
 static const char *stcmd[]  = { "st", NULL };
+static const char *zoomcmd[]  = { "boomer", NULL };
 
 
 
@@ -178,7 +179,8 @@ static Key keys[] = {
 	{ MODKEY,                       XK_space, toggletruefullscreen, {0} },
 	{ MODKEY,                       XK_p,  spawn,              {.v = dmenucmd } },
 	{ MODKEY,			            XK_Return, spawn,          {.v = termcmd } },
-	{ MODKEY|ShiftMask,			    XK_Return, spawn,          {.v = stcmd } },
+	{ MODKEY|ShiftMask,			XK_Return, spawn,          {.v = stcmd } },
+	{ MODKEY,			            XK_z,      spawn,          {.v = zoomcmd } },
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
 	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },

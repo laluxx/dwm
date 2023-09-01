@@ -379,6 +379,48 @@ static size_t autostart_len;
 
 // PERSONAL FUNCTIONS
 
+/* void writewindowcount() { */
+/*     FILE *f = fopen("/tmp/dwm-window-count", "w"); */
+/*     if (f == NULL) { */
+/*         fprintf(stderr, "Error opening file!\n"); */
+/*         return; */
+/*     } */
+
+/*     int count = 0; */
+/*     for (Client *c = selmon->clients; c; c = c->next) { */
+/*         if (!ISVISIBLE(c)) continue; */
+/*         count++; */
+/*     } */
+
+/*     fprintf(f, "%d", count); */
+/*     fflush(f);  // Flush the file buffer */
+/*     ftruncate(fileno(f), ftell(f));  // Truncate the file to the current write position */
+/*     fclose(f); */
+/* } */
+
+void writewindowcount() {
+    FILE *f = fopen("/tmp/dwm-window-count", "w+");
+    if (f == NULL) {
+        fprintf(stderr, "Error opening file!\n");
+        return;
+    }
+
+    int count = 0;
+    for (Client *c = selmon->clients; c; c = c->next) {
+        if (!ISVISIBLE(c)) continue;
+        count++;
+    }
+
+    fprintf(f, "%d", count);
+    fflush(f);  // Flush the file buffer
+    ftruncate(fileno(f), ftell(f));  // Truncate the file to the current write position
+    fclose(f);
+}
+
+
+
+
+
 int getTagMovementDirection(unsigned int newTag) {
     if (previousTag < newTag) {
         return 1;  // Moving forward
@@ -1433,18 +1475,32 @@ mappingnotify(XEvent *e)
 		grabkeys();
 }
 
-void
-maprequest(XEvent *e)
-{
-	static XWindowAttributes wa;
-	XMapRequestEvent *ev = &e->xmaprequest;
+/* void */
+/* maprequest(XEvent *e) */
+/* { */
+/* 	static XWindowAttributes wa; */
+/* 	XMapRequestEvent *ev = &e->xmaprequest; */
 
-	if (!XGetWindowAttributes(dpy, ev->window, &wa))
-		return;
-	if (wa.override_redirect)
-		return;
-	if (!wintoclient(ev->window))
-		manage(ev->window, &wa);
+/* 	if (!XGetWindowAttributes(dpy, ev->window, &wa)) */
+/* 		return; */
+/* 	if (wa.override_redirect) */
+/* 		return; */
+/* 	if (!wintoclient(ev->window)) */
+/* 		manage(ev->window, &wa); */
+/* } */
+
+void maprequest(XEvent *e) {
+    static XWindowAttributes wa;
+    XMapRequestEvent *ev = &e->xmaprequest;
+
+    if (!XGetWindowAttributes(dpy, ev->window, &wa))
+        return;
+    if (wa.override_redirect)
+        return;
+    if (!wintoclient(ev->window))
+        manage(ev->window, &wa);
+
+    writewindowcount();  // Update the window count after managing a new window
 }
 
 void
@@ -2505,18 +2561,32 @@ unmanage(Client *c, int destroyed)
 	}
 }
 
-void
-unmapnotify(XEvent *e)
-{
-	Client *c;
-	XUnmapEvent *ev = &e->xunmap;
+/* void */
+/* unmapnotify(XEvent *e) */
+/* { */
+/* 	Client *c; */
+/* 	XUnmapEvent *ev = &e->xunmap; */
 
-	if ((c = wintoclient(ev->window))) {
-		if (ev->send_event)
-			setclientstate(c, WithdrawnState);
-		else
-			unmanage(c, 0);
-	}
+/* 	if ((c = wintoclient(ev->window))) { */
+/* 		if (ev->send_event) */
+/* 			setclientstate(c, WithdrawnState); */
+/* 		else */
+/* 			unmanage(c, 0); */
+/* 	} */
+/* } */
+
+void unmapnotify(XEvent *e) {
+    Client *c;
+    XUnmapEvent *ev = &e->xunmap;
+
+    if ((c = wintoclient(ev->window))) {
+        if (ev->send_event)
+            setclientstate(c, WithdrawnState);
+        else
+            unmanage(c, 0);
+    }
+
+    writewindowcount();  // Update the window count after unmanaging a window
 }
 
 void
@@ -2835,9 +2905,74 @@ updatewmhints(Client *c)
 /*     arrange(selmon); */
 /* } */
 
+
+
 // ALWAYS CORRECT POSITION + PERTAG
+/* void view(const Arg *arg) { */
+/*     if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags]) */
+/*         return; */
+
+/*     // Determine the active tag index */
+/*     int currentTagMask = selmon->tagset[selmon->seltags]; */
+/*     int currentTagIndex; */
+/*     for (currentTagIndex = 0; currentTagIndex < LENGTH(tags); currentTagIndex++) { */
+/*         if (currentTagMask & (1 << currentTagIndex)) */
+/*             break; */
+/*     } */
+
+/*     // Pertag logic */
+/*     int i; */
+/*     unsigned int tmptag; */
+
+/*     selmon->seltags ^= 1;  /\* toggle sel tagset *\/ */
+
+/*     if (arg->ui & TAGMASK) { */
+/*         selmon->tagset[selmon->seltags] = arg->ui & TAGMASK; */
+/*         selmon->pertag->prevtag = selmon->pertag->curtag; */
+
+/*         if (arg->ui == ~0) */
+/*             selmon->pertag->curtag = 0; */
+/*         else { */
+/*             for (i = 0; !(arg->ui & 1 << i); i++) ; */
+/*             selmon->pertag->curtag = i + 1; */
+/*         } */
+/*     } else { */
+/*         tmptag = selmon->pertag->prevtag; */
+/*         selmon->pertag->prevtag = selmon->pertag->curtag; */
+/*         selmon->pertag->curtag = tmptag; */
+/*     } */
+
+/*     selmon->nmaster = selmon->pertag->nmasters[selmon->pertag->curtag]; */
+/*     selmon->mfact = selmon->pertag->mfacts[selmon->pertag->curtag]; */
+/*     selmon->sellt = selmon->pertag->sellts[selmon->pertag->curtag]; */
+/*     selmon->lt[selmon->sellt] = selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt]; */
+/*     selmon->lt[selmon->sellt^1] = selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt^1]; */
+
+/*     if (selmon->showbar != selmon->pertag->showbars[selmon->pertag->curtag]) */
+/*         togglebar(NULL); */
+
+/*     // Update the previousTag variable */
+/*     previousTag = currentTagIndex; */
+
+/*     // Determine the new tag index */
+/*     int newTagIndex; */
+/*     for (newTagIndex = 0; newTagIndex < LENGTH(tags); newTagIndex++) { */
+/*         if (arg->ui & (1 << newTagIndex)) */
+/*             break; */
+/*     } */
+
+/*     // Correct the movement direction based on tags */
+/*     if (newTagIndex < previousTag) */
+/*         movement_direction = 1;  // Moving to a higher tag */
+/*     else if (newTagIndex > previousTag) */
+/*         movement_direction = -1; // Moving to a lower tag */
+
+/*     focus(NULL); */
+/*     arrange(selmon); */
+/* } */
 
 
+// ALWAYS CORRECT POSITION + PERTAG + WINDOW COUNT
 void view(const Arg *arg) {
     if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
         return;
@@ -2898,28 +3033,14 @@ void view(const Arg *arg) {
         movement_direction = -1; // Moving to a lower tag
 
     focus(NULL);
+
+    writewindowcount();  // Update the window count after switching tags
+
     arrange(selmon);
 }
 
+
 // ADDED
-/* void */
-/* toggleborder(const Arg *arg) { */
-/*     if (!selmon->sel) */
-/*         return; */
-
-/*     if (arg->ui & ShiftMask) { */
-/*         // Toggle borders globally across all windows */
-/*         for (Client *c = selmon->clients; c; c = c->next) { */
-/*             c->bw = c->bw == 0 ? borderpx : 0; */
-/*         } */
-/*     } else { */
-/*         // Toggle border for the focused window only */
-/*         selmon->sel->bw = selmon->sel->bw == 0 ? borderpx : 0; */
-/*     } */
-
-/*     arrange(selmon); */
-/* } */
-
 void toggleborder(const Arg *arg) {
     if (!selmon->sel) return;
 
@@ -3194,31 +3315,60 @@ zoom(const Arg *arg)
 	pop(c);
 }
 
-int
-main(int argc, char *argv[])
-{
-	if (argc == 2 && !strcmp("-v", argv[1]))
-		die("dwm-"VERSION);
-	else if (argc != 1)
-		die("usage: dwm [-v]");
-	if (!setlocale(LC_CTYPE, "") || !XSupportsLocale())
-		fputs("warning: no locale support\n", stderr);
-	if (!(dpy = XOpenDisplay(NULL)))
-		die("dwm: cannot open display");
-	if (!(xcon = XGetXCBConnection(dpy)))
-		die("dwm: cannot get xcb connection\n");
-	checkotherwm();
-        autostart_exec();  // Inserting the autostart function here
-        XrmInitialize();
-        loadxrdb();
-	setup();
+/* int */
+/* main(int argc, char *argv[]) */
+/* { */
+/* 	if (argc == 2 && !strcmp("-v", argv[1])) */
+/* 		die("dwm-"VERSION); */
+/* 	else if (argc != 1) */
+/* 		die("usage: dwm [-v]"); */
+/* 	if (!setlocale(LC_CTYPE, "") || !XSupportsLocale()) */
+/* 		fputs("warning: no locale support\n", stderr); */
+/* 	if (!(dpy = XOpenDisplay(NULL))) */
+/* 		die("dwm: cannot open display"); */
+/* 	if (!(xcon = XGetXCBConnection(dpy))) */
+/* 		die("dwm: cannot get xcb connection\n"); */
+/* 	checkotherwm(); */
+/*         autostart_exec();  // Inserting the autostart function here */
+/*         XrmInitialize(); */
+/*         loadxrdb(); */
+/* 	setup(); */
+/* #ifdef __OpenBSD__ */
+/* 	if (pledge("stdio rpath proc exec ps", NULL) == -1) */
+/* 		die("pledge"); */
+/* #endif /\* __OpenBSD__ *\/ */
+/* 	scan(); */
+/* 	run(); */
+/* 	cleanup(); */
+/* 	XCloseDisplay(dpy); */
+/* 	return EXIT_SUCCESS; */
+/* } */
+
+
+int main(int argc, char *argv[]) {
+    if (argc == 2 && !strcmp("-v", argv[1]))
+        die("dwm-"VERSION);
+    else if (argc != 1)
+        die("usage: dwm [-v]");
+    if (!setlocale(LC_CTYPE, "") || !XSupportsLocale())
+        fputs("warning: no locale support\n", stderr);
+    if (!(dpy = XOpenDisplay(NULL)))
+        die("dwm: cannot open display");
+    if (!(xcon = XGetXCBConnection(dpy)))
+        die("dwm: cannot get xcb connection\n");
+    checkotherwm();
+    autostart_exec();  // Inserting the autostart function here
+    XrmInitialize();
+    loadxrdb();
+    setup();
 #ifdef __OpenBSD__
-	if (pledge("stdio rpath proc exec ps", NULL) == -1)
-		die("pledge");
+    if (pledge("stdio rpath proc exec ps", NULL) == -1)
+        die("pledge");
 #endif /* __OpenBSD__ */
-	scan();
-	run();
-	cleanup();
-	XCloseDisplay(dpy);
-	return EXIT_SUCCESS;
+    scan();
+    run();
+    writewindowcount();  // Call the function here to update the window count
+    cleanup();
+    XCloseDisplay(dpy);
+    return EXIT_SUCCESS;
 }

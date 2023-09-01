@@ -2041,99 +2041,12 @@ int totalWidthOfClientsOnTag(unsigned int tagmask) {
     return totalWidth;
 }
 
-// GOAT
+// documented
 /* void showhide(Client *c) { */
 /*     if (!c) */
 /*         return; */
 
-/*     unsigned int currentTag = selmon->tagset[!selmon->seltags]; */
-/*     unsigned int targetTag = selmon->tagset[selmon->seltags]; */
-/*     int numClientsOnCurrentTag = numberOfVisibleClientsOnTag(currentTag); */
-/*     int numClientsOnTargetTag = numberOfVisibleClientsOnTag(targetTag); */
-/*     int totalWidthCurrentTag = totalWidthOfClientsOnTag(currentTag); */
-
-/*     if ((c->tags & targetTag)) { */
-/*         if (numClientsOnTargetTag == 1 && c->isfloating && WIDTH(c) < selmon->ww/4) { */
-/*             XMoveWindow(dpy, c->win, c->x + movement_direction * (selmon->ww - 10), c->y); */
-/*             showhide(c->snext); */
-/*             XMoveWindow(dpy, c->win, c->x, c->y); */
-/*         } else if (numClientsOnTargetTag <= 1) { */
-/*             XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y); */
-/*             showhide(c->snext); */
-/*             XMoveWindow(dpy, c->win, c->x, c->y); */
-/*         } else { */
-/*             // Slide into view with extended logic for multiple windows */
-/*             XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y); */
-/*             showhide(c->snext); */
-/*             XMoveWindow(dpy, c->win, c->x, c->y); */
-/*         } */
-/*     } else if ((c->tags & currentTag)) { */
-/*         if (numClientsOnCurrentTag <= 1) { */
-/*             XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y); */
-/*         } else { */
-/*             // Slide out of view with extended logic for multiple windows */
-/*             XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y); */
-/*         } */
-/*     } else { */
-/*         // Push the window far away to make sure it's out of view */
-/*         XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
-/*     } */
-/*     showhide(c->snext); */
-/* } */
-
-// HANDLE SINGLE FLOATING WINDOWS V1
-/* void showhide(Client *c) { */
-/*     if (!c) */
-/*         return; */
-
-/*     unsigned int currentTag = selmon->tagset[!selmon->seltags]; */
-/*     unsigned int targetTag = selmon->tagset[selmon->seltags]; */
-/*     int numClientsOnCurrentTag = numberOfVisibleClientsOnTag(currentTag); */
-/*     int numFloatingOnCurrentTag = numberOfFloatingClientsOnTag(currentTag); */
-/*     int numClientsOnTargetTag = numberOfVisibleClientsOnTag(targetTag); */
-/*     int totalWidthCurrentTag = totalWidthOfClientsOnTag(currentTag); */
-
-/*     if (numFloatingOnCurrentTag == 1 && c->isfloating) { */
-/*         // Special case for single floating window on current tag */
-/*         if ((c->tags & targetTag)) { */
-/*             XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); // Move below the screen when showing */
-/*             showhide(c->snext); */
-/*             XMoveWindow(dpy, c->win, c->x, c->y); */
-/*         } else if (c->tags & currentTag) { */
-/*             XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); // Move below the screen when hiding */
-/*         } */
-/*     } else if ((c->tags & targetTag)) { */
-/*         if (numClientsOnTargetTag == 1 && c->isfloating && WIDTH(c) < selmon->ww/4) { */
-/*             XMoveWindow(dpy, c->win, c->x + movement_direction * (selmon->ww - 10), c->y); */
-/*             showhide(c->snext); */
-/*             XMoveWindow(dpy, c->win, c->x, c->y); */
-/*         } else if (numClientsOnTargetTag <= 1) { */
-/*             XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y); */
-/*             showhide(c->snext); */
-/*             XMoveWindow(dpy, c->win, c->x, c->y); */
-/*         } else { */
-/*             // Slide into view with extended logic for multiple windows */
-/*             XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y); */
-/*             showhide(c->snext); */
-/*             XMoveWindow(dpy, c->win, c->x, c->y); */
-/*         } */
-/*     } else if ((c->tags & currentTag)) { */
-/*         if (numClientsOnCurrentTag <= 1) { */
-/*             XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y); */
-/*         } else { */
-/*             // Slide out of view with extended logic for multiple windows */
-/*             XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y); */
-/*         } */
-/*     } else { */
-/*         // Push the window far away to make sure it's out of view */
-/*         XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
-/*     } */
-/*     showhide(c->snext); */
-/* } */
-
-// LASTX
-/* void showhide(Client *c) { */
-/*     if (!c) */
+/*     if (c->scratchkey) */
 /*         return; */
 
 /*     unsigned int currentTagMask = 1 << previousTag; */
@@ -2143,161 +2056,144 @@ int totalWidthOfClientsOnTag(unsigned int tagmask) {
 /*     int numClientsOnTargetTag = numberOfVisibleClientsOnTag(targetTagMask); */
 /*     int totalWidthCurrentTag = totalWidthOfClientsOnTag(currentTagMask); */
 
+/*     // Check if the client is in true fullscreen mode */
 /*     if (c->istruefullscreen) { */
-/*         if (c->tags & targetTagMask) { */
+/*         if (c->tags & targetTagMask) {  // If the client belongs to the target tag */
+/*             // Move the client vertically based on the direction and height */
 /*             XMoveWindow(dpy, c->win, c->x, c->y + movement_direction * selmon->mh); */
+
+/*             // Recursively process the next client */
 /*             showhide(c->snext); */
+
+/*             // Restore the client's position */
 /*             XMoveWindow(dpy, c->win, c->x, c->y); */
-/*         } else if (c->tags & currentTagMask) { */
+/*         } else if (c->tags & currentTagMask) {  // If the client belongs to the current tag */
+/*             // Move the client vertically based on the opposite direction and height */
 /*             XMoveWindow(dpy, c->win, c->x, c->y - movement_direction * selmon->mh); */
 /*         } */
+
+/*     // Check if there's only one floating client on the current tag and the client itself is floating */
 /*     } else if (numFloatingOnCurrentTag == 1 && c->isfloating) { */
 /*         if (c->tags & targetTagMask) { */
-/*             XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); // Move below the screen when showing */
+/*             // Move the client below the screen when showing */
+/*             XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); */
+
+/*             // Recursively process the next client */
 /*             showhide(c->snext); */
+
+/*             // Restore the client's position */
 /*             XMoveWindow(dpy, c->win, c->x, c->y); */
 /*         } else if (c->tags & currentTagMask) { */
-/*             XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); // Move below the screen when hiding */
+/*             // Move the client below the screen when hiding */
+/*             XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); */
 /*         } */
 /*     } else if (c->tags & targetTagMask) { */
+/*         // Logic for the target tag */
+
 /*         if (numClientsOnTargetTag == 1 && c->isfloating && WIDTH(c) < selmon->ww/4) { */
+/*             // If there's only one client on the target tag, and the client is floating, and its width is less than a quarter of the monitor width */
 /*             XMoveWindow(dpy, c->win, c->x + movement_direction * (selmon->ww - 10), c->y); */
+
+/*             // Recursively process the next client */
 /*             showhide(c->snext); */
+
+/*             // Restore the client's position */
 /*             XMoveWindow(dpy, c->win, c->x, c->y); */
 /*         } else if (numClientsOnTargetTag <= 1) { */
+/*             // If there's one or zero clients on the target tag */
 /*             XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y); */
+
+/*             // Recursively process the next client */
 /*             showhide(c->snext); */
+
+/*             // Restore the client's position */
 /*             XMoveWindow(dpy, c->win, c->x, c->y); */
 /*         } else { */
-/*             // Slide into view with extended logic for multiple windows */
+/*             // Slide the client into view with logic for multiple windows */
 /*             XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y); */
+
+/*             // Recursively process the next client */
 /*             showhide(c->snext); */
+
+/*             // Restore the client's position */
 /*             XMoveWindow(dpy, c->win, c->x, c->y); */
 /*         } */
 /*     } else if (c->tags & currentTagMask) { */
+/*         // Logic for the current tag */
+
 /*         if (numClientsOnCurrentTag <= 1) { */
+/*             // If there's one or zero clients on the current tag */
 /*             XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y); */
 /*         } else { */
-/*             // Slide out of view with extended logic for multiple windows */
+/*             // Slide the client out of view with logic for multiple windows */
 /*             XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y); */
 /*         } */
 /*     } else { */
-/*         // Push the window far away to make sure it's out of view */
+/*         // If the client doesn't belong to the current or target tag, push it far away to make sure it's out of view */
 /*         XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
 /*     } */
+
+/*     // Recursively process the next client */
 /*     showhide(c->snext); */
 /* } */
 
+// BASE
 void showhide(Client *c) {
-    // If the client doesn't exist, simply return
     if (!c)
         return;
 
-    // Check if the client is a scratchpad.
-    // If so, we'll just return to avoid moving it here.
     if (c->scratchkey)
         return;
 
-    // Calculate the bitmask for the current tag
     unsigned int currentTagMask = 1 << previousTag;
-
-    // Get the bitmask for the target tag (i.e., the selected tag)
     unsigned int targetTagMask = selmon->tagset[selmon->seltags];
 
-    // Calculate the number of visible clients on the current tag
-    int numClientsOnCurrentTag = numberOfVisibleClientsOnTag(currentTagMask);
-
-    // Calculate the number of floating clients on the current tag
-    int numFloatingOnCurrentTag = numberOfFloatingClientsOnTag(currentTagMask);
-
-    // Calculate the number of visible clients on the target tag
-    int numClientsOnTargetTag = numberOfVisibleClientsOnTag(targetTagMask);
-
-    // Calculate the total width of clients on the current tag
-    int totalWidthCurrentTag = totalWidthOfClientsOnTag(currentTagMask);
-
-    // Check if the client is in true fullscreen mode
-    if (c->istruefullscreen) {
-        if (c->tags & targetTagMask) {  // If the client belongs to the target tag
-            // Move the client vertically based on the direction and height
-            XMoveWindow(dpy, c->win, c->x, c->y + movement_direction * selmon->mh);
-
-            // Recursively process the next client
-            showhide(c->snext);
-
-            // Restore the client's position
-            XMoveWindow(dpy, c->win, c->x, c->y);
-        } else if (c->tags & currentTagMask) {  // If the client belongs to the current tag
-            // Move the client vertically based on the opposite direction and height
-            XMoveWindow(dpy, c->win, c->x, c->y - movement_direction * selmon->mh);
+    int currentSelectedTag = 0;
+    for (int i = 0; i < LENGTH(tags); i++) {
+        if (targetTagMask & (1 << i)) {
+            currentSelectedTag = i;
+            break;
         }
+    }
 
-    // Check if there's only one floating client on the current tag and the client itself is floating
-    } else if (numFloatingOnCurrentTag == 1 && c->isfloating) {
+    int animationDirection = (currentSelectedTag > previousTag) ? 1 : -1;
+
+    int animationDistance = selmon->ww;  // Use screen width for animation
+
+    if (c->istruefullscreen) {
         if (c->tags & targetTagMask) {
-            // Move the client below the screen when showing
-            XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
-
-            // Recursively process the next client
+            XMoveWindow(dpy, c->win, c->x, c->y + animationDirection * selmon->mh);
             showhide(c->snext);
-
-            // Restore the client's position
             XMoveWindow(dpy, c->win, c->x, c->y);
         } else if (c->tags & currentTagMask) {
-            // Move the client below the screen when hiding
+            XMoveWindow(dpy, c->win, c->x, c->y - animationDirection * selmon->mh);
+        }
+    } else if (c->isfloating) {
+        if (c->tags & targetTagMask) {
+            XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
+            showhide(c->snext);
+            XMoveWindow(dpy, c->win, c->x, c->y);
+        } else if (c->tags & currentTagMask) {
             XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
         }
     } else if (c->tags & targetTagMask) {
-        // Logic for the target tag
-
-        if (numClientsOnTargetTag == 1 && c->isfloating && WIDTH(c) < selmon->ww/4) {
-            // If there's only one client on the target tag, and the client is floating, and its width is less than a quarter of the monitor width
-            XMoveWindow(dpy, c->win, c->x + movement_direction * (selmon->ww - 10), c->y);
-
-            // Recursively process the next client
+        if (WIDTH(c) < selmon->ww/4) {
+            XMoveWindow(dpy, c->win, c->x + animationDirection * (selmon->ww - 10), c->y);
             showhide(c->snext);
-
-            // Restore the client's position
-            XMoveWindow(dpy, c->win, c->x, c->y);
-        } else if (numClientsOnTargetTag <= 1) {
-            // If there's one or zero clients on the target tag
-            XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y);
-
-            // Recursively process the next client
-            showhide(c->snext);
-
-            // Restore the client's position
             XMoveWindow(dpy, c->win, c->x, c->y);
         } else {
-            // Slide the client into view with logic for multiple windows
-            XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y);
-
-            // Recursively process the next client
+            XMoveWindow(dpy, c->win, c->x + animationDirection * animationDistance, c->y);
             showhide(c->snext);
-
-            // Restore the client's position
             XMoveWindow(dpy, c->win, c->x, c->y);
         }
     } else if (c->tags & currentTagMask) {
-        // Logic for the current tag
-
-        if (numClientsOnCurrentTag <= 1) {
-            // If there's one or zero clients on the current tag
-            XMoveWindow(dpy, c->win, c->x + movement_direction * WIDTH(c), c->y);
-        } else {
-            // Slide the client out of view with logic for multiple windows
-            XMoveWindow(dpy, c->win, c->x + movement_direction * totalWidthCurrentTag, c->y);
-        }
+        XMoveWindow(dpy, c->win, c->x - animationDirection * animationDistance, c->y);
     } else {
-        // If the client doesn't belong to the current or target tag, push it far away to make sure it's out of view
         XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y);
     }
 
-    // Recursively process the next client
     showhide(c->snext);
 }
-
-
 
 void
 sigchld(int unused)

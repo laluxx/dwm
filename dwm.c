@@ -353,7 +353,7 @@ static xcb_connection_t *xcon;
 /* personal variables */
 const Layout *lastlayout = NULL;
 static unsigned int previousTag = 0;  // Assuming 0 is an invalid/non-existent tag
-static int globalBorderToggled = 0;
+static int globalBorderToggled = 1;
 
 
 
@@ -739,6 +739,27 @@ cleanupmon(Monitor *mon)
 	free(mon);
 }
 
+// ORIGINAL
+/* void */
+/* clientmessage(XEvent *e) */
+/* { */
+/* 	XClientMessageEvent *cme = &e->xclient; */
+/* 	Client *c = wintoclient(cme->window); */
+
+/* 	if (!c) */
+/* 		return; */
+/* 	if (cme->message_type == netatom[NetWMState]) { */
+/* 		if (cme->data.l[1] == netatom[NetWMFullscreen] */
+/* 		|| cme->data.l[2] == netatom[NetWMFullscreen]) */
+/* 			setfullscreen(c, (cme->data.l[0] == 1 /\* _NET_WM_STATE_ADD    *\/ */
+/* 				|| cme->data.l[0] == 2 /\* _NET_WM_STATE_TOGGLE *\/)); */
+/* 	} else if (cme->message_type == netatom[NetActiveWindow]) { */
+/* 		if (c != selmon->sel && !c->isurgent) */
+/* 			seturgent(c, 1); */
+/* 	} */
+/* } */
+
+// URGENT
 void
 clientmessage(XEvent *e)
 {
@@ -753,11 +774,15 @@ clientmessage(XEvent *e)
 			setfullscreen(c, (cme->data.l[0] == 1 /* _NET_WM_STATE_ADD    */
 				|| cme->data.l[0] == 2 /* _NET_WM_STATE_TOGGLE */));
 	} else if (cme->message_type == netatom[NetActiveWindow]) {
-		if (c != selmon->sel && !c->isurgent)
+		if (c != selmon->sel && !c->isurgent) {
 			seturgent(c, 1);
+			// Automatically switch to the tag of the urgent client
+			selmon->tagset[selmon->seltags] = c->tags;
+			focus(NULL);
+			arrange(selmon);
+		}
 	}
 }
-
 
 
 void

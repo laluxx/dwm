@@ -302,6 +302,8 @@ static void cyclelayout(const Arg *arg);
 void toggletruefullscreen(const Arg *arg);
 int numberOfVisibleClientsOnTag(unsigned int tag);
 static void toggleborder(const Arg *arg);
+void togglepeekmode(const Arg *arg);
+
 
 
 
@@ -379,24 +381,90 @@ static size_t autostart_len;
 
 // PERSONAL FUNCTIONS
 
-/* void writewindowcount() { */
-/*     FILE *f = fopen("/tmp/dwm-window-count", "w"); */
-/*     if (f == NULL) { */
-/*         fprintf(stderr, "Error opening file!\n"); */
-/*         return; */
-/*     } */
-
+/* void togglepeekmode(const Arg *arg) { */
+/*     static int inPeekMode = 0; // 0 for off, 1 for on */
+/*     Client *c; */
 /*     int count = 0; */
-/*     for (Client *c = selmon->clients; c; c = c->next) { */
+
+/*     inPeekMode = !inPeekMode; // Toggle peek mode */
+
+/*     for (c = selmon->clients; c; c = c->next) { */
 /*         if (!ISVISIBLE(c)) continue; */
 /*         count++; */
 /*     } */
 
-/*     fprintf(f, "%d", count); */
-/*     fflush(f);  // Flush the file buffer */
-/*     ftruncate(fileno(f), ftell(f));  // Truncate the file to the current write position */
-/*     fclose(f); */
+/*     if (inPeekMode) { */
+/*         for (c = selmon->clients; c; c = c->next) { */
+/*             if (!ISVISIBLE(c)) continue; */
+
+/*             // Determine position of the window */
+/*             if (c == selmon->clients) { // The first client is usually the master */
+/*                 if (count == 1) { */
+/*                     XMoveWindow(dpy, c->win, c->x, 2 * selmon->mh); // Single window, move down faster */
+/*                 } else { */
+/*                     XMoveWindow(dpy, c->win, c->x - selmon->ww, c->y); // Master window, move left */
+/*                 } */
+/*             } else if (count == 2) { // If there are two windows, the second one moves down */
+/*                 XMoveWindow(dpy, c->win, c->x, 2 * selmon->mh); // Move down faster */
+/*             } else if (c->y < selmon->mh / 2) { // If the window is above the middle of the screen, it's top right */
+/*                 XMoveWindow(dpy, c->win, c->x + selmon->ww, c->y); // Move to the right */
+/*             } else { // Otherwise, it's bottom left */
+/*                 XMoveWindow(dpy, c->win, c->x, 2 * selmon->mh); // Move down faster */
+/*             } */
+/*         } */
+/*     } else { */
+/*         // Restore the windows to their original positions */
+/*         for (c = selmon->clients; c; c = c->next) { */
+/*             if (!ISVISIBLE(c)) continue; */
+/*             XMoveWindow(dpy, c->win, c->x, c->y); */
+/*         } */
+/*     } */
 /* } */
+
+
+void togglepeekmode(const Arg *arg) {
+    static int inPeekMode = 0; // 0 for off, 1 for on
+    Client *c;
+    int count = 0;
+
+    inPeekMode = !inPeekMode; // Toggle peek mode
+
+    for (c = selmon->clients; c; c = c->next) {
+        if (!ISVISIBLE(c)) continue;
+        count++;
+    }
+
+    if (inPeekMode) {
+        for (c = selmon->clients; c; c = c->next) {
+            if (!ISVISIBLE(c)) continue;
+
+            // Determine position of the window
+            if (c == selmon->clients) { // The first client is usually the master
+                if (count == 1) {
+                    XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); // Single window, move down smoothly
+                } else {
+                    XMoveWindow(dpy, c->win, c->x - selmon->ww, c->y); // Master window, move left
+                }
+            } else if (count == 2) { // If there are two windows, the second one moves down
+                XMoveWindow(dpy, c->win, c->x, 2 * selmon->mh); // Move down faster
+            } else if (c->y < selmon->mh / 2) { // If the window is above the middle of the screen, it's top right
+                XMoveWindow(dpy, c->win, c->x + selmon->ww, c->y); // Move to the right
+            } else { // Otherwise, it's bottom left
+                XMoveWindow(dpy, c->win, c->x, 2 * selmon->mh); // Move down faster
+            }
+        }
+    } else {
+        // Restore the windows to their original positions
+        for (c = selmon->clients; c; c = c->next) {
+            if (!ISVISIBLE(c)) continue;
+            XMoveWindow(dpy, c->win, c->x, c->y);
+        }
+    }
+}
+
+
+
+
 
 void writewindowcount() {
     FILE *f = fopen("/tmp/dwm-window-count", "w+");
@@ -2784,14 +2852,23 @@ updatesizehints(Client *c)
 		c->maxa = c->mina = 0.0;
 	c->isfixed = (c->maxw && c->maxh && c->maxw == c->minw && c->maxh == c->minh);
 }
+// ORIGINAL
+/* void */
+/* updatestatus(void) */
+/* { */
+/* 	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext))) */
+/* 		strcpy(stext, "dwm-"VERSION); */
+/* 	drawbar(selmon); */
+/* } */
 
 void
 updatestatus(void)
 {
 	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
-		strcpy(stext, "dwm-"VERSION);
+		strcpy(stext, "                                            ");  // Sace to add modules
 	drawbar(selmon);
 }
+
 
 void
 updatetitle(Client *c)

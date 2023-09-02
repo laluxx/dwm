@@ -183,6 +183,7 @@ static Key keys[] = {
     { MODKEY,                       XK_o,      toggleborder, {0} },
     { MODKEY|ShiftMask,             XK_o,      toggleborder, {.ui = ShiftMask} },
 	{ MODKEY,			            XK_z,      spawn,          {.v = zoomcmd } },
+    { MODKEY|ShiftMask,             XK_d,      togglepeekmode,  {0} },
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
 	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },

@@ -36,7 +36,8 @@ static const char *autostart[][4] = {
 static const char *scratchpadcmd[] = {"s", "st", "-t", "scratchpad", NULL};
 
 /* tagging */
-static const char *tags[] = { "", "", "", "", "       ", "", "", "", "" }; /**/
+static const char *tags[] = { "", "", "", "", "", "", "󰣇", "", " " }; /**/
+static const int taglayouts[] = {0, 1, 2, 0, 3, 2, 2, 2, 2};
 
 // ORIGINAL
 /* static const Rule rules[] = { */
@@ -126,15 +127,22 @@ void truefullscreen(Monitor *m) {
 #include "fibonacci.c"
 static const Layout layouts[] = {
 	/* symbol     arrange function */
-	{ "[]=",      tile },    /* first entry is default */
+	{ "",      tile },    /* first entry is default */
+	{ "",    masterstack },
 	{ "><>",      NULL },    /* no layout function means floating behavior */
-	{ "[M]",      monocle },
+	{ "",      monocle },
 	{ "[T]",    truefullscreen },
-	{ "[🡰]",    masterstack },
  	{ "[@]",      spiral },
  	{ "[\\]",      dwindle },
 
 };
+
+static const MonitorRule monrules[] = {
+    /* monitor  tag  layout  mfact  nmaster  showbar  topbar */
+    {  0,       1,   1,      -1,    -1,      -1,      -1     }, // use the third layout for the first tag on the primary monitor
+    {  -1,     -1,  0,      -1,    -1,      -1,      -1     }, // default
+};
+
 
 /* key definitions */
 #define MODKEY Mod4Mask

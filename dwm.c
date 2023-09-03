@@ -192,6 +192,16 @@ typedef struct {
 	const char scratchkey;
 } Rule;
 
+typedef struct {
+	int monitor;
+	int tag;
+	int layout;
+	float mfact;
+	int nmaster;
+	int showbar;
+	int topbar;
+} MonitorRule;
+
 /* function declarations */
 static void setcurrentdesktop(void);
 static void setdesktopnames(void);
@@ -1012,12 +1022,47 @@ configurerequest(XEvent *e)
 	}
 	XSync(dpy, False);
 }
+// ORIGINAL
+/* Monitor * */
+/* createmon(void) */
+/* { */
+/* 	Monitor *m; */
+/* 	unsigned int i; */
+
+/* 	m = ecalloc(1, sizeof(Monitor)); */
+/* 	m->tagset[0] = m->tagset[1] = 1; */
+/* 	m->mfact = mfact; */
+/* 	m->nmaster = nmaster; */
+/* 	m->showbar = showbar; */
+/* 	m->topbar = topbar; */
+/* 	m->gappx = gappx; */
+/* 	m->lt[0] = &layouts[0]; */
+/* 	m->lt[1] = &layouts[1 % LENGTH(layouts)]; */
+/* 	strncpy(m->ltsymbol, layouts[0].symbol, sizeof m->ltsymbol); */
+/* 	m->pertag = ecalloc(1, sizeof(Pertag)); */
+/* 	m->pertag->curtag = m->pertag->prevtag = 1; */
+
+/* 	for (i = 0; i <= LENGTH(tags); i++) { */
+/* 		m->pertag->nmasters[i] = m->nmaster; */
+/* 		m->pertag->mfacts[i] = m->mfact; */
+
+/* 		m->pertag->ltidxs[i][0] = m->lt[0]; */
+/* 		m->pertag->ltidxs[i][1] = m->lt[1]; */
+/* 		m->pertag->sellts[i] = m->sellt; */
+
+/* 		m->pertag->showbars[i] = m->showbar; */
+/* 	} */
+
+/* 	return m; */
+/* } */
 
 Monitor *
 createmon(void)
 {
-	Monitor *m;
+	Monitor *m, *mon;
 	unsigned int i;
+	int mi, j, layout;
+	const MonitorRule *mr;
 
 	m = ecalloc(1, sizeof(Monitor));
 	m->tagset[0] = m->tagset[1] = 1;
@@ -1026,9 +1071,36 @@ createmon(void)
 	m->showbar = showbar;
 	m->topbar = topbar;
 	m->gappx = gappx;
+
+	// Initialize with default values first
 	m->lt[0] = &layouts[0];
 	m->lt[1] = &layouts[1 % LENGTH(layouts)];
 	strncpy(m->ltsymbol, layouts[0].symbol, sizeof m->ltsymbol);
+
+	for (mi = 0, mon = mons; mon; mon = mon->next, mi++);
+	for (j = 0; j < LENGTH(monrules); j++) {
+		mr = &monrules[j];
+		if ((mr->monitor == -1 || mr->monitor == mi)
+				&& (mr->tag <= 0 || (m->tagset[0] & (1 << (mr->tag - 1))))
+		) {
+			layout = MAX(mr->layout, 0);
+			layout = MIN(layout, LENGTH(layouts) - 1);
+			m->lt[0] = &layouts[layout];
+			m->lt[1] = &layouts[1 % LENGTH(layouts)];
+			strncpy(m->ltsymbol, layouts[layout].symbol, sizeof m->ltsymbol);
+
+			if (mr->mfact > -1)
+				m->mfact = mr->mfact;
+			if (mr->nmaster > -1)
+				m->nmaster = mr->nmaster;
+			if (mr->showbar > -1)
+				m->showbar = mr->showbar;
+			if (mr->topbar > -1)
+				m->topbar = mr->topbar;
+			break;
+		}
+	}
+
 	m->pertag = ecalloc(1, sizeof(Pertag));
 	m->pertag->curtag = m->pertag->prevtag = 1;
 
@@ -1036,15 +1108,26 @@ createmon(void)
 		m->pertag->nmasters[i] = m->nmaster;
 		m->pertag->mfacts[i] = m->mfact;
 
-		m->pertag->ltidxs[i][0] = m->lt[0];
-		m->pertag->ltidxs[i][1] = m->lt[1];
-		m->pertag->sellts[i] = m->sellt;
+		for (j = 0; j < LENGTH(monrules); j++) {
+			mr = &monrules[j];
+			if ((mr->monitor == -1 || mr->monitor == mi) && (mr->tag == -1 || mr->tag == i)) {
+				layout = MAX(mr->layout, 0);
+				layout = MIN(layout, LENGTH(layouts) - 1);
+				m->pertag->ltidxs[i][0] = &layouts[layout];
+				m->pertag->ltidxs[i][1] = m->lt[0];
+				m->pertag->nmasters[i] = (mr->nmaster > -1 ? mr->nmaster : m->nmaster);
+				m->pertag->mfacts[i] = (mr->mfact > -1 ? mr->mfact : m->mfact);
+				m->pertag->showbars[i] = (mr->showbar > -1 ? mr->showbar : m->showbar);
+				break;
+			}
+		}
 
-		m->pertag->showbars[i] = m->showbar;
+		m->pertag->sellts[i] = m->sellt;
 	}
 
 	return m;
 }
+
 
 void
 destroynotify(XEvent *e)
@@ -2267,6 +2350,9 @@ setup(void)
 	grabkeys();
 	focus(NULL);
 }
+
+
+
 void
 setviewport(void){
 	long data[] = { 0, 0 };

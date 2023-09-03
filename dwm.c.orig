@@ -173,7 +173,6 @@ struct Monitor {
 	Window barwin;
 	const Layout *lt[2];
 	Pertag *pertag;
-	Client *lastsel; // last window selected
 };
 
 
@@ -304,8 +303,6 @@ void toggletruefullscreen(const Arg *arg);
 int numberOfVisibleClientsOnTag(unsigned int tag);
 static void toggleborder(const Arg *arg);
 void togglepeekmode(const Arg *arg);
-static void masterstack(Monitor *);
-
 
 
 
@@ -359,10 +356,6 @@ static xcb_connection_t *xcon;
 const Layout *lastlayout = NULL;
 static unsigned int previousTag = 0;  // Assuming 0 is an invalid/non-existent tag
 static int globalBorderToggled = 1;
-// MONOCLE
-Client *prevclient = NULL;
-int prevclientidx = -1;
-
 
 
 
@@ -699,28 +692,12 @@ arrangemon(Monitor *m)
 		m->lt[m->sellt]->arrange(m);
 }
 
-/* void */
-/* attach(Client *c) */
-/* { */
-/* 	c->next = c->mon->clients; */
-/* 	c->mon->clients = c; */
-/* } */
-
 void
 attach(Client *c)
 {
-    if (c->mon->lt[c->mon->sellt]->arrange == masterstack) {
-        Client **tc;
-        for (tc = &c->mon->clients; *tc; tc = &(*tc)->next);
-        *tc = c;
-        c->next = NULL;
-    } else {
-        c->next = c->mon->clients;
-        c->mon->clients = c;
-    }
+	c->next = c->mon->clients;
+	c->mon->clients = c;
 }
-
-
 
 void
 attachstack(Client *c)
@@ -1185,72 +1162,30 @@ expose(XEvent *e)
 		drawbar(m);
 }
 
-
-// ORIGINAL
-/* void */
-/* focus(Client *c) */
-/* { */
-/* 	if (!c || !ISVISIBLE(c)) */
-/* 		for (c = selmon->stack; c && !ISVISIBLE(c); c = c->snext); */
-/* 	if (selmon->sel && selmon->sel != c) */
-/* 		unfocus(selmon->sel, 0); */
-/* 	if (c) { */
-/* 		if (c->mon != selmon) */
-/* 			selmon = c->mon; */
-/* 		if (c->isurgent) */
-/* 			seturgent(c, 0); */
-/* 		detachstack(c); */
-/* 		attachstack(c); */
-/* 		grabbuttons(c, 1); */
-/* 		XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel); */
-/* 		setfocus(c); */
-/* 	} else { */
-/* 		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime); */
-/* 		XDeleteProperty(dpy, root, netatom[NetActiveWindow]); */
-/* 	} */
-/* 	selmon->sel = c; */
-/* 	if (selmon->lt[selmon->sellt]->arrange == monocle) */
-/* 		arrangemon(selmon); */
-/* 	drawbars(); */
-/* } */
-
 void
 focus(Client *c)
 {
-    if (!c || !ISVISIBLE(c))
-        for (c = selmon->stack; c && !ISVISIBLE(c); c = c->snext);
-    if (selmon->sel && selmon->sel != c)
-        unfocus(selmon->sel, 0);
-    if (c) {
-        if (c->mon != selmon)
-            selmon = c->mon;
-        if (c->isurgent)
-            seturgent(c, 0);
-        detachstack(c);
-        attachstack(c);
-        grabbuttons(c, 1);
-        XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel);
-        setfocus(c);
-    } else {
-        XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
-        XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
-    }
-
-    prevclient = selmon->sel; // Store the current client as the previous client before updating
-    Client *cc;
-    int idx = 0;
-    for (cc = selmon->clients; cc && cc != prevclient; cc = cc->next) {
-        if (ISVISIBLE(cc)) idx++;
-    }
-    prevclientidx = (cc == prevclient) ? idx : -1;
-
-    selmon->sel = c;
-
-    if (selmon->lt[selmon->sellt]->arrange == monocle)
-        arrangemon(selmon);
-    drawbars();
+	if (!c || !ISVISIBLE(c))
+		for (c = selmon->stack; c && !ISVISIBLE(c); c = c->snext);
+	if (selmon->sel && selmon->sel != c)
+		unfocus(selmon->sel, 0);
+	if (c) {
+		if (c->mon != selmon)
+			selmon = c->mon;
+		if (c->isurgent)
+			seturgent(c, 0);
+		detachstack(c);
+		attachstack(c);
+		grabbuttons(c, 1);
+		XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel);
+		setfocus(c);
+	} else {
+		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
+		XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+	}
+	selmon->sel = c;
+	drawbars();
 }
-
 
 /* there are some broken focus acquiring clients needing extra handling */
 void
@@ -1636,107 +1571,21 @@ void maprequest(XEvent *e) {
     writewindowcount();  // Update the window count after managing a new window
 }
 
-/* void */
-/* monocle(Monitor *m) */
-/* { */
-/* 	unsigned int n = 0; */
-/* 	Client *c; */
-
-/* 	for (c = m->clients; c; c = c->next) */
-/* 		if (ISVISIBLE(c)) */
-/* 			n++; */
-/* 	if (n > 0) /\* override layout symbol *\/ */
-/* 		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n); */
-/* 	for (c = m->stack; c && (!ISVISIBLE(c) || c->isfloating); c = c->snext); */
-/* 	if (c && !c->isfloating) { */
-/* 		XMoveWindow(dpy, c->win, m->wx, m->wy); */
-/* 		resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0); */
-/* 		c = c->snext; */
-/* 	} */
-/* 	for (; c; c = c->snext) */
-/* 		if (!c->isfloating && ISVISIBLE(c)) */
-/* 			XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
-/* } */
-
-
-
-// V1
-/* void monocle(Monitor *m) { */
-/*     unsigned int n = 0; */
-/*     Client *c, *oldc = NULL; */
-/*     int oldidx = -1, newidx = -1, idx = 0; */
-
-/*     for (c = m->clients; c; c = c->next) */
-/*         if (ISVISIBLE(c)) */
-/*             n++; */
-/*     if (n > 0) /\* override layout symbol *\/ */
-/*         snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n); */
-
-/*     for (c = m->clients; c; c = c->next, idx++) { */
-/*         if (c == m->sel) newidx = idx; */
-/*         if (c == m->lastsel) oldidx = idx; */
-/*     } */
-
-/*     int animationDirection = (newidx > oldidx) ? 1 : -1; */
-
-/*     for (c = m->stack; c && (!ISVISIBLE(c) || c->isfloating); c = c->snext); */
-
-/*     if (c && !c->isfloating) { */
-/*         if (c == selmon->sel) { */
-/*             XMoveWindow(dpy, c->win, m->wx, m->wy); */
-/*             resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0); */
-/*         } else { */
-/*             XMoveWindow(dpy, c->win, m->wx + animationDirection * m->ww, c->y); */
-/*         } */
-/*         c = c->snext; */
-/*     } */
-
-/*     for (; c; c = c->snext) { */
-/*         if (!c->isfloating && ISVISIBLE(c)) { */
-/*             if (c == selmon->sel) { */
-/*                 XMoveWindow(dpy, c->win, m->wx, m->wy); */
-/*             } else { */
-/*                 XMoveWindow(dpy, c->win, m->wx + animationDirection * m->ww, c->y); */
-/*             } */
-/*         } */
-/*     } */
-
-/*     m->lastsel = m->sel; */
-/* } */
-
-
-
 void
 monocle(Monitor *m)
 {
-    unsigned int n = 0;
-    Client *c;
-    int idx = 0, selidx = -1;
+	unsigned int n = 0;
+	Client *c;
 
-    for (c = m->clients; c; c = c->next) {
-        if (ISVISIBLE(c)) {
-            n++;
-            if (c == m->sel) selidx = idx;
-            idx++;
-        }
-    }
-
-    int animationDirection = (selidx > prevclientidx) ? 1 : -1;
-    int animationDistance = m->ww;  // Use screen width for animation
-
-    for (c = m->clients; c; c = c->next) {
-        if (ISVISIBLE(c) && !c->isfloating) {
-            if (c == m->sel) {
-                XMoveWindow(dpy, c->win, m->wx, m->wy);
-                resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0);
-            } else if (c == prevclient) {
-                XMoveWindow(dpy, c->win, m->wx + animationDirection * animationDistance, m->wy);
-            } else {
-                XMoveWindow(dpy, c->win, m->wx - animationDirection * animationDistance, m->wy);
-            }
-        }
-    }
+	for (c = m->clients; c; c = c->next)
+		if (ISVISIBLE(c))
+			n++;
+	if (n > 0) /* override layout symbol */
+		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
+	for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
+		resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0);
 }
+
 
 
 void
@@ -2565,12 +2414,6 @@ tile(Monitor *m)
 			resize(c, m->wx + mw + m->gappx, m->wy + ty, m->ww - mw - (2*c->bw) - 2*m->gappx, h - (2*c->bw), 0);
 			ty += HEIGHT(c) + m->gappx;
 		}
-}
-
-void
-masterstack(Monitor *m)
-{
-    tile(m);
 }
 
 

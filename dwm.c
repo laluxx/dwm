@@ -2013,63 +2013,255 @@ motionnotify(XEvent *e)
 	mon = m;
 }
 
+// ORIGINAL
+/* void */
+/* movemouse(const Arg *arg) */
+/* { */
+/* 	int x, y, ocx, ocy, nx, ny; */
+/* 	Client *c; */
+/* 	Monitor *m; */
+/* 	XEvent ev; */
+/* 	Time lasttime = 0; */
+
+/* 	if (!(c = selmon->sel)) */
+/* 		return; */
+/* 	restack(selmon); */
+/* 	ocx = c->x; */
+/* 	ocy = c->y; */
+/* 	if (XGrabPointer(dpy, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, */
+/* 		None, cursor[CurMove]->cursor, CurrentTime) != GrabSuccess) */
+/* 		return; */
+/* 	if (!getrootptr(&x, &y)) */
+/* 		return; */
+/* 	do { */
+/* 		XMaskEvent(dpy, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev); */
+/* 		switch(ev.type) { */
+/* 		case ConfigureRequest: */
+/* 		case Expose: */
+/* 		case MapRequest: */
+/* 			handler[ev.type](&ev); */
+/* 			break; */
+/* 		case MotionNotify: */
+/* 			if ((ev.xmotion.time - lasttime) <= (1000 / 60)) */
+/* 				continue; */
+/* 			lasttime = ev.xmotion.time; */
+
+/* 			nx = ocx + (ev.xmotion.x - x); */
+/* 			ny = ocy + (ev.xmotion.y - y); */
+/* 			if (abs(selmon->wx - nx) < snap) */
+/* 				nx = selmon->wx; */
+/* 			else if (abs((selmon->wx + selmon->ww) - (nx + WIDTH(c))) < snap) */
+/* 				nx = selmon->wx + selmon->ww - WIDTH(c); */
+/* 			if (abs(selmon->wy - ny) < snap) */
+/* 				ny = selmon->wy; */
+/* 			else if (abs((selmon->wy + selmon->wh) - (ny + HEIGHT(c))) < snap) */
+/* 				ny = selmon->wy + selmon->wh - HEIGHT(c); */
+/* 			if (!c->isfloating && selmon->lt[selmon->sellt]->arrange */
+/* 			&& (abs(nx - c->x) > snap || abs(ny - c->y) > snap)) */
+/* 				togglefloating(NULL); */
+/* 			if (!selmon->lt[selmon->sellt]->arrange || c->isfloating) */
+/* 				resize(c, nx, ny, c->w, c->h, 1); */
+/* 			break; */
+/* 		} */
+/* 	} while (ev.type != ButtonRelease); */
+/* 	XUngrabPointer(dpy, CurrentTime); */
+/* 	if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) { */
+/* 		sendmon(c, m); */
+/* 		selmon = m; */
+/* 		focus(NULL); */
+/* 	} */
+/* } */
+
+/* void */
+/* movemouse(const Arg *arg) */
+/* { */
+/*     int x, y, ocx, ocy, nx, ny; */
+/*     Client *c; */
+/*     Monitor *m; */
+/*     XEvent ev; */
+/*     Time lasttime = 0; */
+
+/*     if (!(c = selmon->sel)) */
+/*         return; */
+
+/*     restack(selmon); */
+/*     ocx = c->x; */
+/*     ocy = c->y; */
+
+/*     if (XGrabPointer(dpy, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, */
+/*         None, cursor[CurMove]->cursor, CurrentTime) != GrabSuccess) */
+/*         return; */
+
+/*     if (!getrootptr(&x, &y)) */
+/*         return; */
+
+/*     do { */
+/*         XMaskEvent(dpy, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev); */
+/*         switch(ev.type) { */
+/*         case ConfigureRequest: */
+/*         case Expose: */
+/*         case MapRequest: */
+/*             handler[ev.type](&ev); */
+/*             break; */
+/*         case MotionNotify: */
+/*             if ((ev.xmotion.time - lasttime) <= (1000 / 60)) */
+/*                 continue; */
+
+/*             lasttime = ev.xmotion.time; */
+/*             nx = ocx + (ev.xmotion.x - x); */
+/*             ny = ocy + (ev.xmotion.y - y); */
+
+/*             if (abs(selmon->wx - nx) < snap) */
+/*                 nx = selmon->wx; */
+/*             else if (abs((selmon->wx + selmon->ww) - (nx + WIDTH(c))) < snap) */
+/*                 nx = selmon->wx + selmon->ww - WIDTH(c); */
+
+/*             if (abs(selmon->wy - ny) < snap) */
+/*                 ny = selmon->wy; */
+/*             else if (abs((selmon->wy + selmon->wh) - (ny + HEIGHT(c))) < snap) */
+/*                 ny = selmon->wy + selmon->wh - HEIGHT(c); */
+
+/*             if (!c->isfloating && selmon->lt[selmon->sellt]->arrange && */
+/*                (abs(nx - c->x) > snap || abs(ny - c->y) > snap)) */
+/*                 togglefloating(NULL); */
+
+/*             if (!selmon->lt[selmon->sellt]->arrange || c->isfloating) */
+/*                 resize(c, nx, ny, c->w, c->h, 1); */
+
+/*             // Check right border */
+/*             if (nx + WIDTH(c) > selmon->mx + selmon->mw) { */
+/*                 if ((selmon->tagset[selmon->seltags] & ((1 << LENGTH(tags)) - 1)) < (1 << LENGTH(tags) - 1)) { */
+/*                     Arg a = {.ui = selmon->tagset[selmon->seltags] << 1}; // next tag */
+/*                     tag(&a);   // Tag the client to the new tag */
+/*                     view(&a);  // Switch to that tag */
+/*                     nx = selmon->mx + (selmon->mw / 2) - (WIDTH(c) / 2); // center the window */
+/*                     ny = selmon->wy + (selmon->wh / 2) - (HEIGHT(c) / 2); */
+/*                     ocx = nx - (ev.xmotion.x - x);  // adjust original x-coordinate for smooth dragging */
+/*                 } */
+/*             } */
+
+/*             // Check left border */
+/*             else if (nx < selmon->mx) { */
+/*                 if ((selmon->tagset[selmon->seltags] & ((1 << LENGTH(tags)) - 1)) > 1) { */
+/*                     Arg a = {.ui = selmon->tagset[selmon->seltags] >> 1}; // previous tag */
+/*                     tag(&a);   // Tag the client to the new tag */
+/*                     view(&a);  // Switch to that tag */
+/*                     nx = selmon->mx + (selmon->mw / 2) - (WIDTH(c) / 2); // center the window */
+/*                     ny = selmon->wy + (selmon->wh / 2) - (HEIGHT(c) / 2); */
+/*                     ocx = nx - (ev.xmotion.x - x);  // adjust original x-coordinate for smooth dragging */
+/*                 } */
+/*             } */
+/*             break; */
+/*         } */
+/*     } while (ev.type != ButtonRelease); */
+
+/*     XUngrabPointer(dpy, CurrentTime); */
+/*     if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) { */
+/*         sendmon(c, m); */
+/*         selmon = m; */
+/*         focus(NULL); */
+/*     } */
+/* } */
+
+// BEST
 void
 movemouse(const Arg *arg)
 {
-	int x, y, ocx, ocy, nx, ny;
-	Client *c;
-	Monitor *m;
-	XEvent ev;
-	Time lasttime = 0;
+    int x, y, ocx, ocy, nx, ny;
+    Client *c;
+    Monitor *m;
+    XEvent ev;
+    Time lasttime = 0;
 
-	if (!(c = selmon->sel))
-		return;
-	restack(selmon);
-	ocx = c->x;
-	ocy = c->y;
-	if (XGrabPointer(dpy, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync,
-		None, cursor[CurMove]->cursor, CurrentTime) != GrabSuccess)
-		return;
-	if (!getrootptr(&x, &y))
-		return;
-	do {
-		XMaskEvent(dpy, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
-		switch(ev.type) {
-		case ConfigureRequest:
-		case Expose:
-		case MapRequest:
-			handler[ev.type](&ev);
-			break;
-		case MotionNotify:
-			if ((ev.xmotion.time - lasttime) <= (1000 / 60))
-				continue;
-			lasttime = ev.xmotion.time;
+    if (!(c = selmon->sel))
+        return;
 
-			nx = ocx + (ev.xmotion.x - x);
-			ny = ocy + (ev.xmotion.y - y);
-			if (abs(selmon->wx - nx) < snap)
-				nx = selmon->wx;
-			else if (abs((selmon->wx + selmon->ww) - (nx + WIDTH(c))) < snap)
-				nx = selmon->wx + selmon->ww - WIDTH(c);
-			if (abs(selmon->wy - ny) < snap)
-				ny = selmon->wy;
-			else if (abs((selmon->wy + selmon->wh) - (ny + HEIGHT(c))) < snap)
-				ny = selmon->wy + selmon->wh - HEIGHT(c);
-			if (!c->isfloating && selmon->lt[selmon->sellt]->arrange
-			&& (abs(nx - c->x) > snap || abs(ny - c->y) > snap))
-				togglefloating(NULL);
-			if (!selmon->lt[selmon->sellt]->arrange || c->isfloating)
-				resize(c, nx, ny, c->w, c->h, 1);
-			break;
-		}
-	} while (ev.type != ButtonRelease);
-	XUngrabPointer(dpy, CurrentTime);
-	if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) {
-		sendmon(c, m);
-		selmon = m;
-		focus(NULL);
-	}
+    restack(selmon);
+    ocx = c->x;
+    ocy = c->y;
+
+    if (XGrabPointer(dpy, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync,
+        None, cursor[CurMove]->cursor, CurrentTime) != GrabSuccess)
+        return;
+
+    if (!getrootptr(&x, &y))
+        return;
+
+    do {
+        XMaskEvent(dpy, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
+        switch(ev.type) {
+        case ConfigureRequest:
+        case Expose:
+        case MapRequest:
+            handler[ev.type](&ev);
+            break;
+        case MotionNotify:
+            if ((ev.xmotion.time - lasttime) <= (1000 / 60))
+                continue;
+
+            lasttime = ev.xmotion.time;
+            nx = ocx + (ev.xmotion.x - x);
+            ny = ocy + (ev.xmotion.y - y);
+
+            if (abs(selmon->wx - nx) < snap)
+                nx = selmon->wx;
+            else if (abs((selmon->wx + selmon->ww) - (nx + WIDTH(c))) < snap)
+                nx = selmon->wx + selmon->ww - WIDTH(c);
+
+            if (abs(selmon->wy - ny) < snap)
+                ny = selmon->wy;
+            else if (abs((selmon->wy + selmon->wh) - (ny + HEIGHT(c))) < snap)
+                ny = selmon->wy + selmon->wh - HEIGHT(c);
+
+            if (!c->isfloating && selmon->lt[selmon->sellt]->arrange &&
+               (abs(nx - c->x) > snap || abs(ny - c->y) > snap))
+                togglefloating(NULL);
+
+            if (!selmon->lt[selmon->sellt]->arrange || c->isfloating)
+                resize(c, nx, ny, c->w, c->h, 1);
+
+            // Check right border
+            if (nx + WIDTH(c) > selmon->mx + selmon->mw) {
+                if ((selmon->tagset[selmon->seltags] & ((1 << LENGTH(tags)) - 1)) < (1 << LENGTH(tags) - 1)) {
+                    Arg a = {.ui = selmon->tagset[selmon->seltags] << 1}; // next tag
+                    tag(&a);   // Tag the client to the new tag
+                    view(&a);  // Switch to that tag
+                    nx = selmon->mx + (selmon->mw / 2) - (WIDTH(c) / 2); // center the window
+                    ny = selmon->wy + (selmon->wh / 2) - (HEIGHT(c) / 2);
+                    ocx = nx - (ev.xmotion.x - x);  // adjust original x-coordinate for smooth dragging
+
+                    // Move cursor to the center
+                    XWarpPointer(dpy, None, root, 0, 0, 0, 0, selmon->mx + selmon->mw / 2, selmon->wy + selmon->wh / 2);
+                }
+            }
+
+            // Check left border
+            else if (nx < selmon->mx) {
+                if ((selmon->tagset[selmon->seltags] & ((1 << LENGTH(tags)) - 1)) > 1) {
+                    Arg a = {.ui = selmon->tagset[selmon->seltags] >> 1}; // previous tag
+                    tag(&a);   // Tag the client to the new tag
+                    view(&a);  // Switch to that tag
+                    nx = selmon->mx + (selmon->mw / 2) - (WIDTH(c) / 2); // center the window
+                    ny = selmon->wy + (selmon->wh / 2) - (HEIGHT(c) / 2);
+                    ocx = nx - (ev.xmotion.x - x);  // adjust original x-coordinate for smooth dragging
+
+                    // Move cursor to the center
+                    XWarpPointer(dpy, None, root, 0, 0, 0, 0, selmon->mx + selmon->mw / 2, selmon->wy + selmon->wh / 2);
+                }
+            }
+            break;
+        }
+    } while (ev.type != ButtonRelease);
+
+    XUngrabPointer(dpy, CurrentTime);
+    if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) {
+        sendmon(c, m);
+        selmon = m;
+        focus(NULL);
+    }
 }
+
+
 
 Client *
 nexttiled(Client *c)

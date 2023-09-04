@@ -222,6 +222,7 @@ static void configure(Client *c);
 static void configurenotify(XEvent *e);
 static void configurerequest(XEvent *e);
 static Monitor *createmon(void);
+static void deck(Monitor *m);
 static void destroynotify(XEvent *e);
 static void detach(Client *c);
 static void detachstack(Client *c);
@@ -701,6 +702,125 @@ arrange(Monitor *m)
 		arrangemon(m);
 }
 
+// ALPHA DECK
+/* void */
+/* deck(Monitor *m) { */
+/* 	unsigned int i, n, h, mw, my; */
+/* 	Client *c, *s; */
+
+/* 	for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++); */
+/* 	if (n == 0) */
+/* 		return; */
+
+/* 	if (n > m->nmaster) { */
+/* 		mw = m->nmaster ? m->ww * m->mfact : 0; */
+/* 		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n - m->nmaster); */
+/* 	} */
+/* 	else */
+/* 		mw = m->ww; */
+/* 	for (i = my = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) */
+/* 		if (i < m->nmaster) { */
+/* 			h = (m->wh - my) / (MIN(n, m->nmaster) - i); */
+/* 			resize(c, m->wx, m->wy + my, mw - (2*c->bw), h - (2*c->bw), False); */
+/* 			my += HEIGHT(c); */
+/* 		} */
+/* 		else */
+/* 			XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
+
+/* 	for (s = m->stack; s; s = s->snext) { */
+/* 		if (!ISVISIBLE(s) || s->isfloating) */
+/* 			continue; */
+
+/* 		for (i = my = 0, c = nexttiled(m->clients); c && c != s; c = nexttiled(c->next), i++); */
+/* 		if (i < m->nmaster) */
+/* 			continue; */
+/* 		XMoveWindow(dpy, s->win, c->x, c->y); */
+/* 		resize(s, m->wx + mw, m->wy, m->ww - mw - (2*s->bw), m->wh - (2*s->bw), False); */
+/* 		break; */
+/* 	} */
+/* } */
+
+// ALPHA DECK + ANIMATIONS
+/* void deck(Monitor *m) { */
+/*     unsigned int i, n, h, mw, my; */
+/*     Client *c; */
+
+/*     for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++); */
+/*     if (n == 0) */
+/*         return; */
+
+/*     if (n > m->nmaster) { */
+/*         mw = m->nmaster ? m->ww * m->mfact : 0; */
+/*         snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n - m->nmaster); */
+/*     } else */
+/*         mw = m->ww; */
+
+/*     for (i = my = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) { */
+/*         if (i < m->nmaster) { */
+/*             h = (m->wh - my) / (MIN(n, m->nmaster) - i); */
+/*             resize(c, m->wx, m->wy + my, mw - (2*c->bw), h - (2*c->bw), False); */
+/*             my += HEIGHT(c); */
+/*         } else { */
+/*             // If it's not the top of the stack, move it out of view */
+/*             if (c != m->sel) */
+/*                 XMoveWindow(dpy, c->win, m->wx + mw, m->wh + m->wy); // Move to the bottom of the screen */
+/*             else */
+/*                 XMoveWindow(dpy, c->win, m->wx + mw, m->wy); // Top of the stack should be visible */
+/*         } */
+/*     } */
+/* } */
+
+// WOW
+void deck(Monitor *m) {
+    unsigned int i, n, h, mw, my, ww;
+    int shiftAmount;
+    Client *c;
+    int currentIdx = -1;
+    int selectedIdx = -1;
+
+    // Count visible clients
+    for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
+    if (n == 0) return;
+
+    mw = (n > m->nmaster) ? (m->nmaster ? m->ww * m->mfact : 0) : m->ww;
+    ww = m->ww - mw;
+
+    // Determine index of current and selected windows
+    for (i = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
+        if (c == m->sel) {
+            selectedIdx = i;
+        }
+        if (c == m->clients) {
+            currentIdx = i;
+        }
+    }
+
+    // Determine how much we need to shift the windows. Invert the direction.
+    if (selectedIdx != -1 && currentIdx != -1) {
+        shiftAmount = (currentIdx - selectedIdx) * ww;
+    } else {
+        shiftAmount = 0;
+    }
+
+    for (i = my = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
+        if (i < m->nmaster) {
+            h = (m->wh - my) / (MIN(n, m->nmaster) - i);
+            resize(c, m->wx + shiftAmount, m->wy + my, mw - (2*c->bw), h - (2*c->bw), False);
+            my += HEIGHT(c);
+        } else {
+            // Position of the stack window relative to the master area
+            int relx = (i - m->nmaster) * ww;
+
+            // If it's the first or the second window in the stack, make it visible
+            if (relx < 2 * ww) {
+                XMoveWindow(dpy, c->win, m->wx + mw + relx + shiftAmount, m->wy);
+            } else {
+                XMoveWindow(dpy, c->win, m->ww + m->wx, m->wy);  // Move other windows out of view to the right
+            }
+        }
+    }
+}
+
 void
 arrangemon(Monitor *m)
 {
@@ -716,10 +836,26 @@ arrangemon(Monitor *m)
 /* 	c->mon->clients = c; */
 /* } */
 
+/* void */
+/* attach(Client *c) */
+/* { */
+/*     if (c->mon->lt[c->mon->sellt]->arrange == masterstack) { */
+/*         Client **tc; */
+/*         for (tc = &c->mon->clients; *tc; tc = &(*tc)->next); */
+/*         *tc = c; */
+/*         c->next = NULL; */
+/*     } else { */
+/*         c->next = c->mon->clients; */
+/*         c->mon->clients = c; */
+/*     } */
+/* } */
+
 void
 attach(Client *c)
 {
-    if (c->mon->lt[c->mon->sellt]->arrange == masterstack) {
+    if (c->mon->lt[c->mon->sellt]->arrange == masterstack ||
+        c->mon->lt[c->mon->sellt]->arrange == dwindle ||
+        c->mon->lt[c->mon->sellt]->arrange == spiral) {
         Client **tc;
         for (tc = &c->mon->clients; *tc; tc = &(*tc)->next);
         *tc = c;
@@ -729,6 +865,7 @@ attach(Client *c)
         c->mon->clients = c;
     }
 }
+
 
 
 
@@ -1297,9 +1434,45 @@ expose(XEvent *e)
 /* 	drawbars(); */
 /* } */
 
-void
-focus(Client *c)
-{
+// last
+/* void */
+/* focus(Client *c) */
+/* { */
+/*     if (!c || !ISVISIBLE(c)) */
+/*         for (c = selmon->stack; c && !ISVISIBLE(c); c = c->snext); */
+/*     if (selmon->sel && selmon->sel != c) */
+/*         unfocus(selmon->sel, 0); */
+/*     if (c) { */
+/*         if (c->mon != selmon) */
+/*             selmon = c->mon; */
+/*         if (c->isurgent) */
+/*             seturgent(c, 0); */
+/*         detachstack(c); */
+/*         attachstack(c); */
+/*         grabbuttons(c, 1); */
+/*         XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel); */
+/*         setfocus(c); */
+/*     } else { */
+/*         XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime); */
+/*         XDeleteProperty(dpy, root, netatom[NetActiveWindow]); */
+/*     } */
+
+/*     prevclient = selmon->sel; // Store the current client as the previous client before updating */
+/*     Client *cc; */
+/*     int idx = 0; */
+/*     for (cc = selmon->clients; cc && cc != prevclient; cc = cc->next) { */
+/*         if (ISVISIBLE(cc)) idx++; */
+/*     } */
+/*     prevclientidx = (cc == prevclient) ? idx : -1; */
+
+/*     selmon->sel = c; */
+
+/*     if (selmon->lt[selmon->sellt]->arrange == monocle) */
+/*         arrangemon(selmon); */
+/*     drawbars(); */
+/* } */
+
+void focus(Client *c) {
     if (!c || !ISVISIBLE(c))
         for (c = selmon->stack; c && !ISVISIBLE(c); c = c->snext);
     if (selmon->sel && selmon->sel != c)
@@ -1318,7 +1491,6 @@ focus(Client *c)
         XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
         XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
     }
-
     prevclient = selmon->sel; // Store the current client as the previous client before updating
     Client *cc;
     int idx = 0;
@@ -1330,6 +1502,8 @@ focus(Client *c)
     selmon->sel = c;
 
     if (selmon->lt[selmon->sellt]->arrange == monocle)
+        arrangemon(selmon);
+    if (selmon->lt[selmon->sellt]->arrange == deck) // The new lines added from your patch
         arrangemon(selmon);
     drawbars();
 }

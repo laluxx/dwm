@@ -134,6 +134,8 @@ static const Layout layouts[] = {
 	{ "[T]",    truefullscreen },
  	{ "[@]",      spiral },
  	{ "[\\]",      dwindle },
+	{ "[D]",      deck },
+
 
 };
 

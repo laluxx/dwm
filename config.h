@@ -21,6 +21,11 @@ static char *colors[][3] = {
        [SchemeSel]  = { selfgcolor,  selbgcolor,  selbordercolor  },
 };
 
+#define EDGETHRESHOLD 5
+#define MOUSEEDGESWITCH 1  // 1 to enable, 0 to disable
+#define DRAGGEDGESWITCH 1  // 1 to enable, 0 to disable
+
+
 
 static const char *autostart[][4] = {
     { "unclutter", NULL, NULL, NULL },

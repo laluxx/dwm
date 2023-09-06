@@ -378,6 +378,8 @@ static int globalBorderToggled = 1;
 // MONOCLE
 Client *prevclient = NULL;
 int prevclientidx = -1;
+Client *dragging = NULL;
+
 
 
 
@@ -2090,6 +2092,7 @@ movemouse(const Arg *arg)
 
     if (!(c = selmon->sel))
         return;
+    dragging = c;  // Set the dragging client when dragging begins
     restack(selmon);
     ocx = c->x;
     ocy = c->y;
@@ -2157,6 +2160,7 @@ movemouse(const Arg *arg)
         selmon = m;
         focus(NULL);
     }
+    dragging = NULL; // Reset dragging client
 }
 
 
@@ -2199,7 +2203,6 @@ movemouse(const Arg *arg)
 void
 checkedgeswitch(void)
 {
-    Monitor *m;
     int x;
     static int wasAtEdge = 0;
     static time_t last_switch_time = 0;
@@ -2224,7 +2227,7 @@ checkedgeswitch(void)
         }
     } else if (x > (selmon->mx + selmon->mw - EDGETHRESHOLD)) {
         if (!wasAtEdge || (current_time - last_switch_time) > 2) {
-            if (selmon->tagset[selmon->seltags] < (1 << LENGTH(tags) - 1)) {
+            if (selmon->tagset[selmon->seltags] < (1 << (LENGTH(tags) - 1))) {
                 if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) {
                     view(&((Arg) {.ui = selmon->tagset[selmon->seltags] << 1}));
                     wasAtEdge = 1;
@@ -2857,62 +2860,117 @@ int totalWidthOfClientsOnTag(unsigned int tagmask) {
 /* } */
 
 // BASE
+/* void showhide(Client *c) { */
+/*     if (!c) */
+/*         return; */
+
+/*     /\* if (c->scratchkey) *\/ */
+/*     /\*     return; *\/ */
+
+/*     unsigned int currentTagMask = 1 << previousTag; */
+/*     unsigned int targetTagMask = selmon->tagset[selmon->seltags]; */
+
+/*     int currentSelectedTag = 0; */
+/*     for (int i = 0; i < LENGTH(tags); i++) { */
+/*         if (targetTagMask & (1 << i)) { */
+/*             currentSelectedTag = i; */
+/*             break; */
+/*         } */
+/*     } */
+
+/*     int animationDirection = (currentSelectedTag > previousTag) ? 1 : -1; */
+
+/*     int animationDistance = selmon->ww;  // Use screen width for animation */
+
+/*     if (c->istruefullscreen) { */
+/*         if (c->tags & targetTagMask) { */
+/*             XMoveWindow(dpy, c->win, c->x, c->y + animationDirection * selmon->mh); */
+/*             showhide(c->snext); */
+/*             XMoveWindow(dpy, c->win, c->x, c->y); */
+/*         } else if (c->tags & currentTagMask) { */
+/*             XMoveWindow(dpy, c->win, c->x, c->y - animationDirection * selmon->mh); */
+/*         } */
+/*     } else if (c->isfloating) { */
+/*         if (c->tags & targetTagMask) { */
+/*             XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); */
+/*             showhide(c->snext); */
+/*             XMoveWindow(dpy, c->win, c->x, c->y); */
+/*         } else if (c->tags & currentTagMask) { */
+/*             XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); */
+/*         } */
+/*     } else if (c->tags & targetTagMask) { */
+/*         if (WIDTH(c) < selmon->ww/4) { */
+/*             XMoveWindow(dpy, c->win, c->x + animationDirection * (selmon->ww - 10), c->y); */
+/*             showhide(c->snext); */
+/*             XMoveWindow(dpy, c->win, c->x, c->y); */
+/*         } else { */
+/*             XMoveWindow(dpy, c->win, c->x + animationDirection * animationDistance, c->y); */
+/*             showhide(c->snext); */
+/*             XMoveWindow(dpy, c->win, c->x, c->y); */
+/*         } */
+/*     } else if (c->tags & currentTagMask) { */
+/*         XMoveWindow(dpy, c->win, c->x - animationDirection * animationDistance, c->y); */
+/*     } else { */
+/*         XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
+/*     } */
+
+/*     showhide(c->snext); */
+/* } */
+
+// best
 void showhide(Client *c) {
     if (!c)
         return;
 
-    if (c->scratchkey)
-        return;
+    // Skip only the dragged client and proceed to its siblings
+    if (c != dragging) {
+        unsigned int currentTagMask = 1 << previousTag;
+        unsigned int targetTagMask = selmon->tagset[selmon->seltags];
 
-    unsigned int currentTagMask = 1 << previousTag;
-    unsigned int targetTagMask = selmon->tagset[selmon->seltags];
-
-    int currentSelectedTag = 0;
-    for (int i = 0; i < LENGTH(tags); i++) {
-        if (targetTagMask & (1 << i)) {
-            currentSelectedTag = i;
-            break;
+        int currentSelectedTag = 0;
+        for (int i = 0; i < LENGTH(tags); i++) {
+            if (targetTagMask & (1 << i)) {
+                currentSelectedTag = i;
+                break;
+            }
         }
-    }
 
-    int animationDirection = (currentSelectedTag > previousTag) ? 1 : -1;
+        int animationDirection = (currentSelectedTag > previousTag) ? 1 : -1;
 
-    int animationDistance = selmon->ww;  // Use screen width for animation
+        int animationDistance = selmon->ww;  // Use screen width for animation
 
-    if (c->istruefullscreen) {
-        if (c->tags & targetTagMask) {
-            XMoveWindow(dpy, c->win, c->x, c->y + animationDirection * selmon->mh);
-            showhide(c->snext);
-            XMoveWindow(dpy, c->win, c->x, c->y);
+        if (c->istruefullscreen) {
+            if (c->tags & targetTagMask) {
+                XMoveWindow(dpy, c->win, c->x, c->y + animationDirection * selmon->mh);
+                XMoveWindow(dpy, c->win, c->x, c->y);
+            } else if (c->tags & currentTagMask) {
+                XMoveWindow(dpy, c->win, c->x, c->y - animationDirection * selmon->mh);
+            }
+        } else if (c->isfloating) {
+            if (c->tags & targetTagMask) {
+                XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
+                XMoveWindow(dpy, c->win, c->x, c->y);
+            } else if (c->tags & currentTagMask) {
+                XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
+            }
+        } else if (c->tags & targetTagMask) {
+            if (WIDTH(c) < selmon->ww/4) {
+                XMoveWindow(dpy, c->win, c->x + animationDirection * (selmon->ww - 10), c->y);
+                XMoveWindow(dpy, c->win, c->x, c->y);
+            } else {
+                XMoveWindow(dpy, c->win, c->x + animationDirection * animationDistance, c->y);
+                XMoveWindow(dpy, c->win, c->x, c->y);
+            }
         } else if (c->tags & currentTagMask) {
-            XMoveWindow(dpy, c->win, c->x, c->y - animationDirection * selmon->mh);
-        }
-    } else if (c->isfloating) {
-        if (c->tags & targetTagMask) {
-            XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
-            showhide(c->snext);
-            XMoveWindow(dpy, c->win, c->x, c->y);
-        } else if (c->tags & currentTagMask) {
-            XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
-        }
-    } else if (c->tags & targetTagMask) {
-        if (WIDTH(c) < selmon->ww/4) {
-            XMoveWindow(dpy, c->win, c->x + animationDirection * (selmon->ww - 10), c->y);
-            showhide(c->snext);
-            XMoveWindow(dpy, c->win, c->x, c->y);
+            XMoveWindow(dpy, c->win, c->x - animationDirection * animationDistance, c->y);
         } else {
-            XMoveWindow(dpy, c->win, c->x + animationDirection * animationDistance, c->y);
-            showhide(c->snext);
-            XMoveWindow(dpy, c->win, c->x, c->y);
+            XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y);
         }
-    } else if (c->tags & currentTagMask) {
-        XMoveWindow(dpy, c->win, c->x - animationDirection * animationDistance, c->y);
-    } else {
-        XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y);
     }
 
     showhide(c->snext);
 }
+
 
 void
 sigchld(int unused)

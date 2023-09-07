@@ -2209,30 +2209,35 @@ movemouse(const Arg *arg)
 
 
 // ADDED
-// this one
 /* int cursorOverClient(int x, int y) { */
 /*     Client *c; */
 /*     for (c = selmon->clients; c; c = c->next) { */
 /*         if (ISVISIBLE(c) && */
-/*             x >= c->x && x <= c->x + c->w && */
-/*             y >= c->y && y <= c->y + c->h) { */
+/*             x > c->x && x < c->x + c->w && */
+/*             y > c->y && y < c->y + c->h) { */
 /*             return 1; // cursor is over this client window */
 /*         } */
 /*     } */
 /*     return 0; // cursor isn't over any client window */
 /* } */
 
+
 int cursorOverClient(int x, int y) {
     Client *c;
     for (c = selmon->clients; c; c = c->next) {
-        if (ISVISIBLE(c) &&
-            x > c->x && x < c->x + c->w &&
-            y > c->y && y < c->y + c->h) {
-            return 1; // cursor is over this client window
+        if (ISVISIBLE(c)) {
+            // Consider left boundary as inside if window width matches monitor width
+            int leftBoundary = (c->w == selmon->mw) ? c->x : c->x + 1;
+
+            if (x >= leftBoundary && x < c->x + c->w &&
+                y > c->y && y < c->y + c->h) {
+                return 1; // cursor is over this client window
+            }
         }
     }
     return 0; // cursor isn't over any client window
 }
+
 
 
 
@@ -2860,6 +2865,61 @@ int totalWidthOfClientsOnTag(unsigned int tagmask) {
 /* } */
 
 // best
+/* void showhide(Client *c) { */
+/*     if (!c) */
+/*         return; */
+
+/*     // Skip only the dragged client and proceed to its siblings */
+/*     if (c != dragging) { */
+/*         unsigned int currentTagMask = 1 << previousTag; */
+/*         unsigned int targetTagMask = selmon->tagset[selmon->seltags]; */
+
+/*         int currentSelectedTag = 0; */
+/*         for (int i = 0; i < LENGTH(tags); i++) { */
+/*             if (targetTagMask & (1 << i)) { */
+/*                 currentSelectedTag = i; */
+/*                 break; */
+/*             } */
+/*         } */
+
+/*         int animationDirection = (currentSelectedTag > previousTag) ? 1 : -1; */
+
+/*         int animationDistance = selmon->ww;  // Use screen width for animation */
+
+/*         if (c->istruefullscreen) { */
+/*             if (c->tags & targetTagMask) { */
+/*                 XMoveWindow(dpy, c->win, c->x, c->y + animationDirection * selmon->mh); */
+/*                 XMoveWindow(dpy, c->win, c->x, c->y); */
+/*             } else if (c->tags & currentTagMask) { */
+/*                 XMoveWindow(dpy, c->win, c->x, c->y - animationDirection * selmon->mh); */
+/*             } */
+/*         } else if (c->isfloating) { */
+/*             if (c->tags & targetTagMask) { */
+/*                 XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); */
+/*                 XMoveWindow(dpy, c->win, c->x, c->y); */
+/*             } else if (c->tags & currentTagMask) { */
+/*                 XMoveWindow(dpy, c->win, c->x, selmon->mh + 10); */
+/*             } */
+/*         } else if (c->tags & targetTagMask) { */
+/*             if (WIDTH(c) < selmon->ww/4) { */
+/*                 XMoveWindow(dpy, c->win, c->x + animationDirection * (selmon->ww - 10), c->y); */
+/*                 XMoveWindow(dpy, c->win, c->x, c->y); */
+/*             } else { */
+/*                 XMoveWindow(dpy, c->win, c->x + animationDirection * animationDistance, c->y); */
+/*                 XMoveWindow(dpy, c->win, c->x, c->y); */
+/*             } */
+/*         } else if (c->tags & currentTagMask) { */
+/*             XMoveWindow(dpy, c->win, c->x - animationDirection * animationDistance, c->y); */
+/*         } else { */
+/*             XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
+/*         } */
+/*     } */
+
+/*     showhide(c->snext); */
+/* } */
+
+
+
 void showhide(Client *c) {
     if (!c)
         return;
@@ -2889,11 +2949,21 @@ void showhide(Client *c) {
                 XMoveWindow(dpy, c->win, c->x, c->y - animationDirection * selmon->mh);
             }
         } else if (c->isfloating) {
-            if (c->tags & targetTagMask) {
-                XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
-                XMoveWindow(dpy, c->win, c->x, c->y);
-            } else if (c->tags & currentTagMask) {
-                XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
+            // Check if the window width is 100% of the screen width
+            if (c->w == selmon->ww) {
+                if (c->tags & targetTagMask) {
+                    XMoveWindow(dpy, c->win, c->x + animationDirection * animationDistance, c->y);
+                    XMoveWindow(dpy, c->win, c->x, c->y);
+                } else if (c->tags & currentTagMask) {
+                    XMoveWindow(dpy, c->win, c->x - animationDirection * animationDistance, c->y);
+                }
+            } else {
+                if (c->tags & targetTagMask) {
+                    XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
+                    XMoveWindow(dpy, c->win, c->x, c->y);
+                } else if (c->tags & currentTagMask) {
+                    XMoveWindow(dpy, c->win, c->x, selmon->mh + 10);
+                }
             }
         } else if (c->tags & targetTagMask) {
             if (WIDTH(c) < selmon->ww/4) {
@@ -2912,6 +2982,7 @@ void showhide(Client *c) {
 
     showhide(c->snext);
 }
+
 
 
 void

@@ -51,7 +51,8 @@
 #include "drw.h"
 #include "util.h"
 #include "math.h"
-#include <unistd.h>
+#include <unistd.h> // sleep
+#include <X11/extensions/Xrender.h>
 
 
 static int movement_direction = 0;  // 0: no movement, 1: right, -1: left
@@ -405,6 +406,13 @@ static size_t autostart_len;
 
 
 // PERSONAL FUNCTIONS
+
+void setWindowTransparency(Window win, double opacity) {
+    unsigned long opacity_value = (unsigned long)(opacity * (double)0xffffffff);
+    XChangeProperty(dpy, win, XInternAtom(dpy, "_NET_WM_WINDOW_OPACITY", False), XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&opacity_value, 1);
+}
+
+
 
 /* void togglepeekmode(const Arg *arg) { */
 /*     static int inPeekMode = 0; // 0 for off, 1 for on */
@@ -1900,6 +1908,7 @@ void maprequest(XEvent *e) {
     writewindowcount();  // Update the window count after managing a new window
 }
 
+// ORIGINAL
 /* void */
 /* monocle(Monitor *m) */
 /* { */
@@ -1922,85 +1931,87 @@ void maprequest(XEvent *e) {
 /* 			XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
 /* } */
 
+// alphα + resize
+void monocle(Monitor *m) {
+    unsigned int n = 0;
+    Client *c, *focused = NULL;
 
+    for (c = m->clients; c; c = c->next) {
+        if (ISVISIBLE(c))
+            n++;
+        if (c == selmon->sel)
+            focused = c;  // store the currently focused client
+    }
 
-// V1
-/* void monocle(Monitor *m) { */
+    if (n > 0) /* override layout symbol */
+        snprintf(m->ltsymbol, sizeof m->ltsymbol, " %d", n);
+
+    if (focused) {
+        // Grow the window gaining focus
+        XMoveWindow(dpy, focused->win, m->wx, m->wy);
+        resize(focused, m->wx, m->wy, m->ww - 2 * focused->bw, m->wh - 2 * focused->bw, 0);
+        setWindowTransparency(focused->win, 1.0);  // make it opaque
+    }
+
+    for (c = m->stack; c; c = c->snext) {
+        if (c != focused && !c->isfloating && ISVISIBLE(c)) {
+            // Shrink the window losing focus
+            XMoveWindow(dpy, c->win, m->wx + (m->ww / 4), m->wy + (m->wh / 4));
+            resize(c, m->wx + (m->ww / 4), m->wy + (m->wh / 4), m->ww / 2 - 2 * c->bw, m->wh / 2 - 2 * c->bw, 0);
+            setWindowTransparency(c->win, 0.0);  // make these windows transparent
+        }
+    }
+}
+
+// stack layout idea TODO
+/* void stack(Monitor *m) { */
 /*     unsigned int n = 0; */
-/*     Client *c, *oldc = NULL; */
-/*     int oldidx = -1, newidx = -1, idx = 0; */
+/*     Client *c; */
+/*     int offset = 30;  // The basic offset for each window */
 
-/*     for (c = m->clients; c; c = c->next) */
-/*         if (ISVISIBLE(c)) */
+/*     for (c = m->clients; c; c = c->next) { */
+/*         if (ISVISIBLE(c)) { */
 /*             n++; */
-/*     if (n > 0) /\* override layout symbol *\/ */
-/*         snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n); */
-
-/*     for (c = m->clients; c; c = c->next, idx++) { */
-/*         if (c == m->sel) newidx = idx; */
-/*         if (c == m->lastsel) oldidx = idx; */
-/*     } */
-
-/*     int animationDirection = (newidx > oldidx) ? 1 : -1; */
-
-/*     for (c = m->stack; c && (!ISVISIBLE(c) || c->isfloating); c = c->snext); */
-
-/*     if (c && !c->isfloating) { */
-/*         if (c == selmon->sel) { */
-/*             XMoveWindow(dpy, c->win, m->wx, m->wy); */
-/*             resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0); */
-/*         } else { */
-/*             XMoveWindow(dpy, c->win, m->wx + animationDirection * m->ww, c->y); */
 /*         } */
-/*         c = c->snext; */
 /*     } */
 
-/*     for (; c; c = c->snext) { */
+/*     if (n > 0) /\* override layout symbol *\/ */
+/*         snprintf(m->ltsymbol, sizeof m->ltsymbol, " %d", n); */
+
+/*     int shift_amount = 15;  // The amount we'll shift windows for each additional window */
+/*     int shift_limit = 4;  // After this many windows, we'll start shifting in the other direction */
+
+/*     // Calculate the starting point. If n is greater than shift_limit, we start shifting bottom-right. */
+/*     int start_offset_x = m->wx + (n > shift_limit ? (n - shift_limit) * shift_amount : 0); */
+/*     int start_offset_y = m->wy + (n > shift_limit ? (n - shift_limit) * shift_amount : 0); */
+
+/*     double opacityDecrement = 0.15;  // Each subsequent window will be more transparent */
+/*     double opacity = 1.0 - opacityDecrement;  // Starting opacity for the first window */
+
+/*     for (c = m->stack; c; c = c->snext) { */
 /*         if (!c->isfloating && ISVISIBLE(c)) { */
-/*             if (c == selmon->sel) { */
-/*                 XMoveWindow(dpy, c->win, m->wx, m->wy); */
+/*             // The first set of windows shift up-left; the rest shift down-right. */
+/*             int adjusted_offset_x = start_offset_x + (n <= shift_limit ? -(n * shift_amount) : offset); */
+/*             int adjusted_offset_y = start_offset_y + (n <= shift_limit ? -(n * shift_amount) : offset); */
+
+/*             XMoveWindow(dpy, c->win, adjusted_offset_x, adjusted_offset_y); */
+/*             resize(c, adjusted_offset_x, adjusted_offset_y, m->ww / 1.2 - 2 * c->bw, m->wh / 1.2 - 2 * c->bw, 0); */
+
+/*             setWindowTransparency(c->win, opacity); */
+/*             opacity -= opacityDecrement; */
+/*             if (opacity < 0.2) opacity = 0.2;  // Set a minimum opacity */
+
+/*             if (n <= shift_limit) { */
+/*                 n--;  // Decrement for the top-left shift */
 /*             } else { */
-/*                 XMoveWindow(dpy, c->win, m->wx + animationDirection * m->ww, c->y); */
+/*                 offset += 30;  // Increase offset for the bottom-right shift */
 /*             } */
 /*         } */
 /*     } */
-
-/*     m->lastsel = m->sel; */
 /* } */
 
 
 
-void
-monocle(Monitor *m)
-{
-    unsigned int n = 0;
-    Client *c;
-    int idx = 0, selidx = -1;
-
-    for (c = m->clients; c; c = c->next) {
-        if (ISVISIBLE(c)) {
-            n++;
-            if (c == m->sel) selidx = idx;
-            idx++;
-        }
-    }
-
-    int animationDirection = (selidx > prevclientidx) ? 1 : -1;
-    int animationDistance = m->ww;  // Use screen width for animation
-
-    for (c = m->clients; c; c = c->next) {
-        if (ISVISIBLE(c) && !c->isfloating) {
-            if (c == m->sel) {
-                XMoveWindow(dpy, c->win, m->wx, m->wy);
-                resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0);
-            } else if (c == prevclient) {
-                XMoveWindow(dpy, c->win, m->wx + animationDirection * animationDistance, m->wy);
-            } else {
-                XMoveWindow(dpy, c->win, m->wx - animationDirection * animationDistance, m->wy);
-            }
-        }
-    }
-}
 
 
 void

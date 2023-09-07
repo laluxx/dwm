@@ -89,29 +89,6 @@ static const int resizehints = 1;    /* 1 means respect size hints in tiled resi
 static const int lockfullscreen = 0; /* 1 will force focus on the fullscreen window */
 
 
-
-// Funtions
-void truefullscreen(Monitor *m) {
-    Client *c;
-
-    for (c = m->clients; c; c = c->next) {
-        if (ISVISIBLE(c)) {
-            // Set the window to floating mode
-            c->isfloating = 1;
-            c->istruefullscreen = 1;  // Add this line
-
-            // Move and resize the window to cover the entire screen
-            XMoveResizeWindow(dpy, c->win, m->mx, m->my, m->mw, m->mh);
-
-            // Hide borders
-            c->bw = 0;
-            XConfigureWindow(dpy, c->win, CWBorderWidth, &(XWindowChanges){.border_width = c->bw});
-        }
-    }
-}
-
-
-
 #include "fibonacci.c"
 static const Layout layouts[] = {
 	/* symbol     arrange function */
@@ -123,9 +100,9 @@ static const Layout layouts[] = {
  	{ "[@]",      spiral },
  	{ "[\\]",      dwindle },
 	{ "[D]",      deck },
-
-
 };
+
+
 
 static const MonitorRule monrules[] = {
     /* monitor  tag  layout  mfact  nmaster  showbar  topbar */

@@ -327,6 +327,8 @@ void togglepeekmode(const Arg *arg);
 static void masterstack(Monitor *);
 static void checkedgeswitch(void);
 void tilefloating(const Arg *arg);
+void truefullscreen(Monitor *m);
+
 
 
 
@@ -439,47 +441,6 @@ void setWindowTransparency(Window win, double opacity) {
 
 
 
-/* void togglepeekmode(const Arg *arg) { */
-/*     static int inPeekMode = 0; // 0 for off, 1 for on */
-/*     Client *c; */
-/*     int count = 0; */
-
-/*     inPeekMode = !inPeekMode; // Toggle peek mode */
-
-/*     for (c = selmon->clients; c; c = c->next) { */
-/*         if (!ISVISIBLE(c)) continue; */
-/*         count++; */
-/*     } */
-
-/*     if (inPeekMode) { */
-/*         for (c = selmon->clients; c; c = c->next) { */
-/*             if (!ISVISIBLE(c)) continue; */
-
-/*             // Determine position of the window */
-/*             if (c == selmon->clients) { // The first client is usually the master */
-/*                 if (count == 1) { */
-/*                     XMoveWindow(dpy, c->win, c->x, 2 * selmon->mh); // Single window, move down faster */
-/*                 } else { */
-/*                     XMoveWindow(dpy, c->win, c->x - selmon->ww, c->y); // Master window, move left */
-/*                 } */
-/*             } else if (count == 2) { // If there are two windows, the second one moves down */
-/*                 XMoveWindow(dpy, c->win, c->x, 2 * selmon->mh); // Move down faster */
-/*             } else if (c->y < selmon->mh / 2) { // If the window is above the middle of the screen, it's top right */
-/*                 XMoveWindow(dpy, c->win, c->x + selmon->ww, c->y); // Move to the right */
-/*             } else { // Otherwise, it's bottom left */
-/*                 XMoveWindow(dpy, c->win, c->x, 2 * selmon->mh); // Move down faster */
-/*             } */
-/*         } */
-/*     } else { */
-/*         // Restore the windows to their original positions */
-/*         for (c = selmon->clients; c; c = c->next) { */
-/*             if (!ISVISIBLE(c)) continue; */
-/*             XMoveWindow(dpy, c->win, c->x, c->y); */
-/*         } */
-/*     } */
-/* } */
-
-
 void togglepeekmode(const Arg *arg) {
     static int inPeekMode = 0; // 0 for off, 1 for on
     Client *c;
@@ -520,10 +481,6 @@ void togglepeekmode(const Arg *arg) {
     }
 }
 
-
-
-
-
 void writewindowcount() {
     FILE *f = fopen("/tmp/dwm-window-count", "w+");
     if (f == NULL) {
@@ -543,10 +500,6 @@ void writewindowcount() {
     fclose(f);
 }
 
-
-
-
-
 int getTagMovementDirection(unsigned int newTag) {
     if (previousTag < newTag) {
         return 1;  // Moving forward
@@ -557,27 +510,21 @@ int getTagMovementDirection(unsigned int newTag) {
     }
 }
 
-
-
-void
-cyclelayout(const Arg *arg) {
+void cyclelayout(const Arg *arg) {
     Layout *l;
-    for (l = (Layout *)layouts; l != selmon->lt[selmon->sellt]; l++);
+    int step = arg->i;  // +1 for forwards, -1 for backwards
+    for (l = (Layout *)layouts; l != selmon->lt[selmon->sellt]; l++)
+        ;
 
-    if (arg->i > 0) {
-        if ((l + 1)->symbol)
-            setlayout(&((Arg) {.v = l + 1 }));
-        else
-            setlayout(&((Arg) {.v = layouts }));
-    } else {
-        if (l != layouts)
-            setlayout(&((Arg) {.v = l - 1 }));
-        else
-            setlayout(&((Arg) {.v = &layouts[LENGTH(layouts) - 1] }));
-    }
+    // Calculate the offset based on the current layout's position and the step
+    int offset = (l - layouts) + step;
+
+    // Use modular arithmetic for wrap-around
+    offset = (offset + LENGTH(layouts)) % LENGTH(layouts);
+
+    // Set the layout to the newly calculated offset
+    setlayout(&((Arg){.v = &layouts[offset]}));
 }
-
-
 
 void
 toggletruefullscreen(const Arg *arg) {
@@ -591,9 +538,6 @@ toggletruefullscreen(const Arg *arg) {
         arrange(selmon);  // Rearrange windows to reflect the bar's presence
     }
 }
-
-
-
 
 /* execute command from autostart array */
 static void
@@ -2050,6 +1994,28 @@ void monocle(Monitor *m) {
         }
     }
 }
+
+
+void truefullscreen(Monitor *m) {
+    Client *c;
+
+    for (c = m->clients; c; c = c->next) {
+        if (ISVISIBLE(c)) {
+            // Set the window to floating mode
+            c->isfloating = 1;
+            c->istruefullscreen = 1;  // Add this line
+
+            // Move and resize the window to cover the entire screen
+            XMoveResizeWindow(dpy, c->win, m->mx, m->my, m->mw, m->mh);
+
+            // Hide borders
+            c->bw = 0;
+            XConfigureWindow(dpy, c->win, CWBorderWidth, &(XWindowChanges){.border_width = c->bw});
+        }
+    }
+}
+
+
 
 // stack layout idea TODO
 /* void stack(Monitor *m) { */

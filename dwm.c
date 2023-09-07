@@ -326,6 +326,7 @@ static void toggleborder(const Arg *arg);
 void togglepeekmode(const Arg *arg);
 static void masterstack(Monitor *);
 static void checkedgeswitch(void);
+void tilefloating(const Arg *arg);
 
 
 
@@ -412,6 +413,24 @@ static size_t autostart_len;
 
 
 // PERSONAL FUNCTIONS
+
+void tilefloating(const Arg *arg) {
+    // If there's no selected window, return
+    if (!selmon->sel)
+        return;
+
+    // If the window is floating, tile it
+    if (selmon->sel->isfloating && !selmon->sel->isfixed) {
+        selmon->sel->isfloating = 0;
+
+    }
+
+    // Rearrange windows on the current monitor
+    arrange(selmon);
+}
+
+
+
 
 void setWindowTransparency(Window win, double opacity) {
     unsigned long opacity_value = (unsigned long)(opacity * (double)0xffffffff);

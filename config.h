@@ -91,25 +91,6 @@ static const int lockfullscreen = 0; /* 1 will force focus on the fullscreen win
 
 
 // Funtions
-/* void */
-/* truefullscreen(Monitor *m) { */
-/*     Client *c; */
-
-/*     for (c = m->clients; c; c = c->next) { */
-/*         if (ISVISIBLE(c)) { */
-/*             // Set the window to floating mode */
-/*             c->isfloating = 1; */
-
-/*             // Move and resize the window to cover the entire screen */
-/*             XMoveResizeWindow(dpy, c->win, m->mx, m->my, m->mw, m->mh); */
-
-/*             // Hide borders */
-/*             c->bw = 0; */
-/*             XConfigureWindow(dpy, c->win, CWBorderWidth, &(XWindowChanges){.border_width = c->bw}); */
-/*         } */
-/*     } */
-/* } */
-
 void truefullscreen(Monitor *m) {
     Client *c;
 
@@ -187,7 +168,7 @@ static Key keys[] = {
     { MODKEY|ShiftMask,             XK_l,      cyclelayout,    {.i = +1 } }, // Go to the next layout
     { MODKEY,                       XK_grave,  togglescratch,  {.v = scratchpadcmd } }, // Go to the next layout
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
-	{ MODKEY,                       XK_t,	   togglefloating, {0} },
+	{ MODKEY,                       XK_t,	   tilefloating, {0} },
 	{ MODKEY,                  XK_BackSpace,   zoom,           {0} },
 	{ MODKEY,                       XK_d,      incnmaster,     {.i = -1 } },
 	{ MODKEY,                       XK_s,      incnmaster,     {.i = +1 } },

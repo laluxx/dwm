@@ -3110,15 +3110,100 @@ void spawnscratch(const Arg *arg)
 	}
 }
 
-void
-tag(const Arg *arg)
-{
-	if (selmon->sel && arg->ui & TAGMASK) {
-		selmon->sel->tags = arg->ui & TAGMASK;
-		focus(NULL);
-		arrange(selmon);
-	}
+// ORIGINAL
+/* void */
+/* tag(const Arg *arg) */
+/* { */
+/* 	if (selmon->sel && arg->ui & TAGMASK) { */
+/* 		selmon->sel->tags = arg->ui & TAGMASK; */
+/* 		focus(NULL); */
+/* 		arrange(selmon); */
+/* 	} */
+/* } */
+
+
+/* When moving a window to a lower numbered tag: The window should go into the stack (not the master area). */
+/* When moving a window to a higher numbered tag: The window should go into the master area. */
+// SOMETIMES IT DOESNT WORK
+void tag(const Arg *arg) {
+    if (!selmon->sel || !(arg->ui & TAGMASK)) return;
+
+    // Get the new tag index
+    unsigned int newTagIndex = 0;
+    for (newTagIndex = 0; newTagIndex < LENGTH(tags); newTagIndex++) {
+        if (arg->ui & (1 << newTagIndex))
+            break;
+    }
+
+    // Get direction (-1 for backward, 1 for forward)
+    int direction = 0;
+    if (newTagIndex < (previousTag - 1)) direction = -1;
+    else if (newTagIndex > (previousTag - 1)) direction = 1;
+
+    // If moving backward, place the window in the stack
+    if (direction == -1) {
+        Client *c = selmon->sel;
+        detach(c);  // Remove client from current client list
+
+        Client *last = NULL;
+        // If there's a client in the master area, make 'last' point to it
+        for (int n = 0, m = selmon->nmaster; n < m && (m > 0); n++) {
+            if (last && last->next) last = last->next;
+            else last = selmon->clients;
+        }
+
+        // If there is no client in the master area, traverse to the end of the list
+        if (!last) {
+            for (last = selmon->clients; last && last->next; last = last->next);
+            c->next = NULL;
+        } else {
+            c->next = last->next;
+            last->next = c;
+        }
+    }
+
+    // Attach the window to the new tag
+    selmon->sel->tags = arg->ui & TAGMASK;
+    focus(NULL);
+    arrange(selmon);
+
+    // Update the previousTag
+    previousTag = newTagIndex + 1;
 }
+
+// PERSONAL FUNCTION
+// DO NOT WORK
+void rearrangewindows(unsigned int targetTagIndex, int direction) {
+    // Temporarily switch to the target tag (for list manipulation only)
+    unsigned int tempTagSet = selmon->tagset[selmon->seltags];
+    selmon->tagset[selmon->seltags] = 1 << targetTagIndex;
+
+    if (direction == -1) { // moving to a lower numbered tag
+        Client *c = selmon->sel;
+        detach(c);
+
+        Client *last = NULL;
+        for (int n = 0, m = selmon->nmaster; n < m && (m > 0); n++) {
+            if (last && last->next) last = last->next;
+            else last = selmon->clients;
+        }
+
+        if (!last) {
+            for (last = selmon->clients; last && last->next; last = last->next);
+            c->next = NULL;
+        } else {
+            c->next = last->next;
+            last->next = c;
+        }
+    }
+    // Here we may define the logic for moving to a higher numbered tag
+
+    // Restore the original tagset without calling arrange
+    selmon->tagset[selmon->seltags] = tempTagSet;
+}
+
+
+
 
 void
 tagmon(const Arg *arg)

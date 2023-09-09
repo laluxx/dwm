@@ -145,6 +145,7 @@ static Key keys[] = {
     { MODKEY|ShiftMask,             XK_l,      cyclelayout,    {.i = +1 } }, // Go to the next layout
     { MODKEY,                       XK_grave,  togglescratch,  {.v = scratchpadcmd } }, // Go to the next layout
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
+	{ MODKEY|ShiftMask,             XK_space,  togglealwaysontop, {0} },
 	{ MODKEY,                       XK_t,	   tilefloating, {0} },
 	{ MODKEY,                  XK_BackSpace,   zoom,           {0} },
 	{ MODKEY,                       XK_d,      incnmaster,     {.i = -1 } },

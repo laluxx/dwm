@@ -27,6 +27,7 @@ static char *colors[][3] = {
 #define MOUSEEDGESWITCH 1  // 1 to enable, 0 to disable
 #define DRAGGEDGESWITCH 1  // 1 to enable, 0 to disable
 
+static const char *alwaysontopclasses[] = { "Popup-error", };
 
 
 static const char *autostart[][4] = {
@@ -43,7 +44,7 @@ static const char *autostart[][4] = {
 static const char *scratchpadcmd[] = {"s", "st", "-t", "scratchpad", NULL};
 
 /* tagging */
-static const char *tags[] = { "", "", "", "", "", "", "󰣇", "", " " }; /**/
+static const char *tags[] = { "", "", "", "", "", "", "", "", "" }; /**/
 static const int taglayouts[] = {0, 1, 2, 0, 3, 2, 2, 2, 2};
 
 // ORIGINAL
@@ -127,6 +128,7 @@ static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() 
 static const char *dmenucmd[] = { "dmrun"};
 static const char *termcmd[]  = { "kitty", NULL };
 static const char *stcmd[]  = { "st", NULL };
+static const char *gnomehudcmd[]  = { "gnomehud", NULL };
 static const char *zoomcmd[]  = { "boomer", NULL };
 
 
@@ -135,35 +137,34 @@ static const char *zoomcmd[]  = { "boomer", NULL };
 #include "movestack.c"
 static Key keys[] = {
 	/* modifier                     key        function        argument */
-	{ MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
-	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
-	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
 	{ MODKEY,                       XK_h,      setmfact,       {.f = -0.05} },
+	{ MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
+	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
+	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
 	{ MODKEY|ShiftMask,             XK_j,      movestack,      {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_k,      movestack,      {.i = -1 } },
-	{ MODKEY|ShiftMask,             XK_h,      cyclelayout,    {.i = -1 } }, // Go to the previous layout
-    { MODKEY|ShiftMask,             XK_l,      cyclelayout,    {.i = +1 } }, // Go to the next layout
-    { MODKEY,                       XK_grave,  togglescratch,  {.v = scratchpadcmd } }, // Go to the next layout
+	{ MODKEY|ShiftMask,             XK_h,      cyclelayout,    {.i = -1 } },
+	{ MODKEY|ShiftMask,             XK_l,      cyclelayout,    {.i = +1 } },
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
 	{ MODKEY|ShiftMask,             XK_space,  togglealwaysontop, {0} },
-	{ MODKEY,                       XK_t,	   tilefloating, {0} },
+	{ MODKEY,                       XK_space,  toggletruefullscreen, {0} },
+	{ MODKEY,                       XK_t,      tilefloating,   {0} },
 	{ MODKEY,                  XK_BackSpace,   zoom,           {0} },
 	{ MODKEY,                       XK_d,      incnmaster,     {.i = -1 } },
 	{ MODKEY,                       XK_s,      incnmaster,     {.i = +1 } },
-	{ MODKEY,		                XK_q,      killclient,     {0} },
+	{ MODKEY,                       XK_q,      killclient,     {0} },
 	{ MODKEY,                       XK_w,      setlayout,      {.v = &layouts[0]} },
 	{ MODKEY,                       XK_e,      setlayout,      {.v = &layouts[1]} },
 	{ MODKEY,                       XK_r,      setlayout,      {.v = &layouts[2]} },
-	{ MODKEY|ShiftMask,             XK_r,  	   quit,           {1} },
-	/* { MODKEY,                       XK_space,  	   setlayout,      {0} }, */
-	{ MODKEY,                       XK_space, toggletruefullscreen, {0} },
-	{ MODKEY,                       XK_p,  spawn,              {.v = dmenucmd } },
-	{ MODKEY,			            XK_Return, spawn,          {.v = termcmd } },
-	{ MODKEY|ShiftMask,			XK_Return, spawn,          {.v = stcmd } },
-    { MODKEY,                       XK_o,      toggleborder, {0} },
-    { MODKEY|ShiftMask,             XK_o,      toggleborder, {.ui = ShiftMask} },
-	{ MODKEY,			            XK_z,      spawn,          {.v = zoomcmd } },
-    { MODKEY|ShiftMask,             XK_d,      togglepeekmode,  {0} },
+	{ MODKEY|ShiftMask,             XK_r,      quit,           {1} },
+	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
+	{ MODKEY,                       XK_Return, spawn,          {.v = termcmd } },
+	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = stcmd } },
+	{ MODKEY,                       XK_o,      toggleborder,   {0} },
+	{ MODKEY|ShiftMask,             XK_o,      toggleborder,   {.ui = ShiftMask} },
+	{ MODKEY,                       XK_z,      spawn,          {.v = zoomcmd } },
+	{ MODKEY|ShiftMask,             XK_d,      togglepeekmode, {0} },
+	{ MODKEY|ShiftMask,             XK_s,      togglestack,    {0} },
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
 	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
@@ -171,10 +172,13 @@ static Key keys[] = {
 	{ MODKEY,                       XK_period, focusmon,       {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_comma,  tagmon,         {.i = -1 } },
 	{ MODKEY|ShiftMask,             XK_period, tagmon,         {.i = +1 } },
-	{ MODKEY,			XK_minus,  setgaps,	   {.i = -1 } },
-	{ MODKEY,			XK_equal,  setgaps,	   {.i = +1 } },
-	{ MODKEY|ShiftMask,		XK_equal,  setgaps,	   {.i =  0 } },
+	{ MODKEY,                       XK_minus,  setgaps,        {.i = -1 } },
+	{ MODKEY,                       XK_equal,  setgaps,        {.i = +1 } },
+	{ MODKEY|ShiftMask,             XK_equal,  setgaps,        {.i =  0 } },
 	{ MODKEY,                       XK_F5,     xrdb,           {.v = NULL } },
+	{ MODKEY,                       XK_grave,  togglescratch,  {.v = scratchpadcmd } },
+	{ Mod1Mask,                     XK_grave,  spawn,          {.v = gnomehudcmd } },
+	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
 	TAGKEYS(                        XK_1,                      0)
 	TAGKEYS(                        XK_2,                      1)
 	TAGKEYS(                        XK_3,                      2)
@@ -184,8 +188,8 @@ static Key keys[] = {
 	TAGKEYS(                        XK_7,                      6)
 	TAGKEYS(                        XK_8,                      7)
 	TAGKEYS(                        XK_9,                      8)
-	{ MODKEY|ShiftMask,		XK_q,      quit,           {0} },
 };
+
 
 static Button buttons[] = {
 	/* click                event mask      button          function        argument */

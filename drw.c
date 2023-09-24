@@ -6,6 +6,11 @@
 #include <X11/Xft/Xft.h>
 #include <Imlib2.h>
 
+#include <X11/cursorfont.h>
+#include <X11/Xutil.h> // For XCreatePixmap
+
+
+
 #include "drw.h"
 #include "util.h"
 

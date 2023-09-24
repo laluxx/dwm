@@ -330,6 +330,7 @@ static void masterstack(Monitor *);
 static void checkedgeswitch(void);
 void tilefloating(const Arg *arg);
 void truefullscreen(Monitor *m);
+void togglestack(const Arg *arg);
 
 
 
@@ -418,6 +419,95 @@ static size_t autostart_len;
 
 // PERSONAL FUNCTIONS
 
+
+
+
+/* void togglestack(const Arg *arg) { */
+/*     static Client *hidden = NULL; // To keep track of hidden clients */
+/*     Client *c, *t, *first = NULL, *lastHidden = NULL; */
+
+/*     if(!hidden) { // If no hidden windows, hide the stack */
+/*         for(c = selmon->clients; c; c = c->next) { */
+/*             if(ISVISIBLE(c) && !c->isfloating && !c->isfullscreen) { */
+/*                 if(!first) { // Skip the first client (master) */
+/*                     first = c; */
+/*                     continue; */
+/*                 } */
+
+/*                 detach(c); // Unmanage clients in the stack */
+
+/*                 if(lastHidden) { */
+/*                     lastHidden->next = c; // Append to the hidden list */
+/*                 } else { */
+/*                     hidden = c; // Start the hidden list */
+/*                 } */
+/*                 lastHidden = c; // Update the last hidden pointer */
+/*                 // Move windows to the right outside of the screen */
+/*                 XMoveWindow(dpy, c->win, selmon->wx + selmon->ww, c->y); */
+/*             } */
+/*         } */
+/*         if(lastHidden) lastHidden->next = NULL; // Ensure the end of the list is NULL */
+/*         arrange(selmon); // Rearrange all windows to make the master occupy the whole space */
+/*     } else { // If there are hidden windows, show the stack */
+/*         for(c = hidden; c; c = t) { */
+/*             t = c->next; // Store the next pointer as it will be overwritten by attach */
+/*             attach(c); // Reattach the window to the client list */
+/*             // Move windows back to their original position */
+/*             XMoveWindow(dpy, c->win, c->x - selmon->ww, c->y); */
+/*         } */
+/*         hidden = NULL; // Clear the hidden list */
+/*         arrange(selmon); // Rearrange to restore the original layout */
+/*     } */
+/* } */
+
+
+
+
+void togglestack(const Arg *arg) {
+    static Client *hidden = NULL;
+    Client *c, *firstVisible = NULL, *lastHidden = NULL;
+
+    if (!hidden) { // If stack is not hidden
+        for (c = selmon->clients; c; c = c->next) {
+            if (ISVISIBLE(c) && !c->isfloating && !c->isfullscreen) {
+                if (!firstVisible) { // skip the first window
+                    firstVisible = c;
+                    continue;
+                }
+
+                int newPositionX = selmon->mx + selmon->mw; // Move window to the right off-screen
+
+                // Move window
+                XMoveWindow(dpy, c->win, newPositionX, c->y);
+
+                // detach from stack
+                detachstack(c);
+
+                // detach from client list and add to hidden list
+                if (lastHidden) lastHidden->next = c;
+                else hidden = c;
+
+                lastHidden = c;
+            }
+        }
+        if (lastHidden) lastHidden->next = NULL;
+    } else { // If stack is hidden
+        for (c = hidden; c; c = hidden) {
+            hidden = c->next;
+            attach(c); // reattach
+            attachstack(c); // you may need a function like this to reattach to the stack properly.
+            // You might need to restore their original position if needed.
+            XMapWindow(dpy, c->win);  // Map back to the original position
+        }
+        lastHidden = NULL; // Reset last hidden
+    }
+    arrange(selmon);
+}
+
+
+
+
+
 void tilefloating(const Arg *arg) {
     // If there's no selected window, return
     if (!selmon->sel)
@@ -433,15 +523,10 @@ void tilefloating(const Arg *arg) {
     arrange(selmon);
 }
 
-
-
-
 void setWindowTransparency(Window win, double opacity) {
     unsigned long opacity_value = (unsigned long)(opacity * (double)0xffffffff);
     XChangeProperty(dpy, win, XInternAtom(dpy, "_NET_WM_WINDOW_OPACITY", False), XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&opacity_value, 1);
 }
-
-
 
 void togglepeekmode(const Arg *arg) {
     static int inPeekMode = 0; // 0 for off, 1 for on
@@ -528,18 +613,212 @@ void cyclelayout(const Arg *arg) {
     setlayout(&((Arg){.v = &layouts[offset]}));
 }
 
-void
-toggletruefullscreen(const Arg *arg) {
+void toggletruefullscreen(const Arg *arg) {
     if (selmon->lt[selmon->sellt] != &layouts[4]) {
         lastlayout = selmon->lt[selmon->sellt];
         setlayout(&((Arg) { .v = &layouts[4] }));
     } else if (lastlayout) {
-        selmon->showbar = 1; // Show the bar
-        updatebarpos(selmon); // Update the bar position
+        // Set layout first
         setlayout(&((Arg) { .v = lastlayout }));
-        arrange(selmon);  // Rearrange windows to reflect the bar's presence
+        selmon->showbar = 1;
+        updatebarpos(selmon);
+
+        // Reset the master factor to its default or desired value
+        selmon->mfact = mfact;
+
+        // Iterate over all clients and tile them if they are floating
+        Client *c;
+        for(c = selmon->clients; c; c = c->next) {
+            if(c->isfloating && !c->isfixed)
+                c->isfloating = 0;
+        }
+
+        // Manually call the tiling arrangement function of the desired layout
+        if(lastlayout->arrange == tile)
+            tile(selmon);
+
+        // Finally, call arrange to reflect the changes
+        arrange(selmon);
     }
 }
+
+void toggleborder(const Arg *arg) {
+    if (!selmon->sel) return;
+
+    // Toggle the global border state
+    if (arg->ui & ShiftMask) {
+        globalBorderToggled = !globalBorderToggled;
+        for (Client *c = selmon->clients; c; c = c->next) {
+            c->bw = globalBorderToggled ? 0 : borderpx;
+            configure(c);  // Apply changes immediately
+        }
+    } else {
+        // Toggle border for the focused window only
+        selmon->sel->bw = selmon->sel->bw == 0 ? borderpx : 0;
+    }
+
+    arrange(selmon);
+}
+
+
+
+// ADDED
+/* void */
+/* checkedgeswitch(void) */
+/* { */
+/*     int x; */
+/*     static int wasAtEdge = 0; */
+/*     static time_t last_switch_time = 0; */
+/*     time_t current_time; */
+/*     int isDragging = 0; */
+
+/*     XQueryPointer(dpy, root, &(Window){0}, &(Window){0}, &x, &(int){0}, &(int){0}, &(int){0}, &(unsigned int){0}); */
+/*     if (selmon->sel && selmon->sel->isfloating) */
+/*         isDragging = 1; // Checking if a window is currently being dragged */
+
+/*     time(&current_time); */
+
+/*     if (x < EDGETHRESHOLD) { */
+/*         if (!wasAtEdge || (current_time - last_switch_time) > 2) {  // 2 seconds delay */
+/*             if (selmon->tagset[selmon->seltags] > 1) { */
+/*                 if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) { */
+/*                     view(&((Arg) {.ui = selmon->tagset[selmon->seltags] >> 1})); */
+/*                     wasAtEdge = 1; */
+/*                     last_switch_time = current_time; */
+/*                 } */
+/*             } */
+/*         } */
+/*     } else if (x > (selmon->mx + selmon->mw - EDGETHRESHOLD)) { */
+/*         if (!wasAtEdge || (current_time - last_switch_time) > 2) { */
+/*             if (selmon->tagset[selmon->seltags] < (1 << (LENGTH(tags) - 1))) { */
+/*                 if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) { */
+/*                     view(&((Arg) {.ui = selmon->tagset[selmon->seltags] << 1})); */
+/*                     wasAtEdge = 1; */
+/*                     last_switch_time = current_time; */
+/*                 } */
+/*             } */
+/*         } */
+/*     } else { */
+/*         wasAtEdge = 0; */
+/*     } */
+/* } */
+
+
+
+// ADDED
+/* int cursorOverClient(int x, int y) { */
+/*     Client *c; */
+/*     for (c = selmon->clients; c; c = c->next) { */
+/*         if (ISVISIBLE(c) && */
+/*             x > c->x && x < c->x + c->w && */
+/*             y > c->y && y < c->y + c->h) { */
+/*             return 1; // cursor is over this client window */
+/*         } */
+/*     } */
+/*     return 0; // cursor isn't over any client window */
+/* } */
+
+
+int cursorOverClient(int x, int y) {
+    Client *c;
+    for (c = selmon->clients; c; c = c->next) {
+        if (ISVISIBLE(c)) {
+            // Consider left boundary as inside if window width matches monitor width
+            int leftBoundary = (c->w == selmon->mw) ? c->x : c->x + 1;
+
+            if (x >= leftBoundary && x < c->x + c->w &&
+                y > c->y && y < c->y + c->h) {
+                return 1; // cursor is over this client window
+            }
+        }
+    }
+    return 0; // cursor isn't over any client window
+}
+
+
+
+
+void checkedgeswitch(void) {
+    int x, y;
+    static int wasAtEdge = 0;
+    static time_t last_switch_time = 0;
+    time_t current_time;
+    int isDragging = 0;
+
+    XQueryPointer(dpy, root, &(Window){0}, &(Window){0}, &x, &y, &(int){0}, &(int){0}, &(unsigned int){0});
+
+    if (cursorOverClient(x, y)) {
+        return; // Exit the function if the cursor is over any client window
+    }
+
+    if (selmon->sel && selmon->sel->isfloating)
+        isDragging = 1; // Checking if a window is currently being dragged
+
+    time(&current_time);
+
+    if (x < EDGETHRESHOLD) {
+        if (!wasAtEdge || (current_time - last_switch_time) > 2) {  // 2 seconds delay
+            if (selmon->tagset[selmon->seltags] > 1) {
+                if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) {
+                    view(&((Arg) {.ui = selmon->tagset[selmon->seltags] >> 1}));
+                    wasAtEdge = 1;
+                    last_switch_time = current_time;
+                }
+            }
+        }
+    } else if (x > (selmon->mx + selmon->mw - EDGETHRESHOLD)) {
+        if (!wasAtEdge || (current_time - last_switch_time) > 2) {
+            if (selmon->tagset[selmon->seltags] < (1 << (LENGTH(tags) - 1))) {
+                if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) {
+                    view(&((Arg) {.ui = selmon->tagset[selmon->seltags] << 1}));
+                    wasAtEdge = 1;
+                    last_switch_time = current_time;
+                }
+            }
+        }
+    } else {
+        wasAtEdge = 0;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+int clientsInTag(unsigned int tagmask) {
+    Client *c;
+    for (c = selmon->clients; c; c = c->next)
+        if (c->tags & tagmask)
+            return 1;
+    return 0;
+}
+
+int numberOfFloatingClientsOnTag(unsigned int tag) {
+    int count = 0;
+    for (Client *c = selmon->clients; c; c = c->next) {
+        if (c->isfloating && (c->tags & tag)) {
+            count++;
+        }
+    }
+    return count;
+}
+
+int numberOfVisibleClientsOnTag(unsigned int tagmask) {
+    int count = 0;
+    Client *c;
+    for (c = selmon->clients; c; c = c->next)
+        if (c->tags & tagmask)
+            count++;
+    return count;
+}
+
+
 
 /* execute command from autostart array */
 static void
@@ -688,75 +967,7 @@ arrange(Monitor *m)
 		arrangemon(m);
 }
 
-// ALPHA DECK
-/* void */
-/* deck(Monitor *m) { */
-/* 	unsigned int i, n, h, mw, my; */
-/* 	Client *c, *s; */
-
-/* 	for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++); */
-/* 	if (n == 0) */
-/* 		return; */
-
-/* 	if (n > m->nmaster) { */
-/* 		mw = m->nmaster ? m->ww * m->mfact : 0; */
-/* 		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n - m->nmaster); */
-/* 	} */
-/* 	else */
-/* 		mw = m->ww; */
-/* 	for (i = my = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) */
-/* 		if (i < m->nmaster) { */
-/* 			h = (m->wh - my) / (MIN(n, m->nmaster) - i); */
-/* 			resize(c, m->wx, m->wy + my, mw - (2*c->bw), h - (2*c->bw), False); */
-/* 			my += HEIGHT(c); */
-/* 		} */
-/* 		else */
-/* 			XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
-
-/* 	for (s = m->stack; s; s = s->snext) { */
-/* 		if (!ISVISIBLE(s) || s->isfloating) */
-/* 			continue; */
-
-/* 		for (i = my = 0, c = nexttiled(m->clients); c && c != s; c = nexttiled(c->next), i++); */
-/* 		if (i < m->nmaster) */
-/* 			continue; */
-/* 		XMoveWindow(dpy, s->win, c->x, c->y); */
-/* 		resize(s, m->wx + mw, m->wy, m->ww - mw - (2*s->bw), m->wh - (2*s->bw), False); */
-/* 		break; */
-/* 	} */
-/* } */
-
-// ALPHA DECK + ANIMATIONS
-/* void deck(Monitor *m) { */
-/*     unsigned int i, n, h, mw, my; */
-/*     Client *c; */
-
-/*     for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++); */
-/*     if (n == 0) */
-/*         return; */
-
-/*     if (n > m->nmaster) { */
-/*         mw = m->nmaster ? m->ww * m->mfact : 0; */
-/*         snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n - m->nmaster); */
-/*     } else */
-/*         mw = m->ww; */
-
-/*     for (i = my = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) { */
-/*         if (i < m->nmaster) { */
-/*             h = (m->wh - my) / (MIN(n, m->nmaster) - i); */
-/*             resize(c, m->wx, m->wy + my, mw - (2*c->bw), h - (2*c->bw), False); */
-/*             my += HEIGHT(c); */
-/*         } else { */
-/*             // If it's not the top of the stack, move it out of view */
-/*             if (c != m->sel) */
-/*                 XMoveWindow(dpy, c->win, m->wx + mw, m->wh + m->wy); // Move to the bottom of the screen */
-/*             else */
-/*                 XMoveWindow(dpy, c->win, m->wx + mw, m->wy); // Top of the stack should be visible */
-/*         } */
-/*     } */
-/* } */
-
-// WOW
+// alpha
 void deck(Monitor *m) {
     unsigned int i, n, h, mw, my, ww;
     int shiftAmount;
@@ -1839,17 +2050,88 @@ loadxrdb()
   XCloseDisplay(display);
 }
 
+/* void */
+/* manage(Window w, XWindowAttributes *wa) */
+/* { */
+/* 	Client *c, *t = NULL, *term = NULL; */
+/* 	Window trans = None; */
+/* 	XWindowChanges wc; */
+
+/* 	c = ecalloc(1, sizeof(Client)); */
+/* 	c->win = w; */
+/* 	c->pid = winpid(w); */
+/* 	/\* geometry *\/ */
+/* 	c->x = c->oldx = wa->x; */
+/* 	c->y = c->oldy = wa->y; */
+/* 	c->w = c->oldw = wa->width; */
+/* 	c->h = c->oldh = wa->height; */
+/* 	c->oldbw = wa->border_width; */
+
+/* 	updateicon(c); */
+/* 	updatetitle(c); */
+/* 	if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) { */
+/* 		c->mon = t->mon; */
+/* 		c->tags = t->tags; */
+/* 	} else { */
+/* 		c->mon = selmon; */
+/* 		applyrules(c); */
+/* 		term = termforwin(c); */
+/* 	} */
+
+/* 	if (c->x + WIDTH(c) > c->mon->mx + c->mon->mw) */
+/* 		c->x = c->mon->mx + c->mon->mw - WIDTH(c); */
+/* 	if (c->y + HEIGHT(c) > c->mon->my + c->mon->mh) */
+/* 		c->y = c->mon->my + c->mon->mh - HEIGHT(c); */
+/* 	c->x = MAX(c->x, c->mon->mx); */
+/* 	/\* only fix client y-offset, if the client center might cover the bar *\/ */
+/* 	c->y = MAX(c->y, ((c->mon->by == c->mon->my) && (c->x + (c->w / 2) >= c->mon->wx) */
+/* 		&& (c->x + (c->w / 2) < c->mon->wx + c->mon->ww)) ? bh : c->mon->my); */
+/* 	/\* c->bw = borderpx; *\/ */
+/* 	c->bw = globalBorderToggled ? 0 : borderpx; */
+
+/* 	wc.border_width = c->bw; */
+/* 	XConfigureWindow(dpy, w, CWBorderWidth, &wc); */
+/* 	XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel); */
+/* 	configure(c); /\* propagates border_width, if size doesn't change *\/ */
+/* 	updatewindowtype(c); */
+/* 	updatesizehints(c); */
+/* 	updatewmhints(c); */
+/* 	c->x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2;   //   ALWAYS */
+/* 	c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2; //    center */
+/* 	XSelectInput(dpy, w, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask); */
+/* 	grabbuttons(c, 0); */
+/* 	if (!c->isfloating) */
+/* 		c->isfloating = c->oldstate = trans != None || c->isfixed; */
+/* 	if (c->isfloating) */
+/* 		XRaiseWindow(dpy, c->win); */
+/* 	attach(c); */
+/* 	attachstack(c); */
+/* 	XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32, PropModeAppend, */
+/* 		(unsigned char *) &(c->win), 1); */
+/* 	XMoveResizeWindow(dpy, c->win, c->x + 2 * sw, c->y, c->w, c->h); /\* some windows require this *\/ */
+/* 	setclientstate(c, NormalState); */
+/* 	if (c->mon == selmon) */
+/* 		unfocus(selmon->sel, 0); */
+/* 	c->mon->sel = c; */
+/* 	arrange(c->mon); */
+/* 	XMapWindow(dpy, c->win); */
+/* 	if (term) */
+/* 		swallow(term, c); */
+/* 	focus(NULL); */
+/* } */
+
 void
 manage(Window w, XWindowAttributes *wa)
 {
 	Client *c, *t = NULL, *term = NULL;
 	Window trans = None;
 	XWindowChanges wc;
+	XClassHint classres = { NULL, NULL };
 
 	c = ecalloc(1, sizeof(Client));
 	c->win = w;
 	c->pid = winpid(w);
-	/* geometry */
+
 	c->x = c->oldx = wa->x;
 	c->y = c->oldy = wa->y;
 	c->w = c->oldw = wa->width;
@@ -1872,32 +2154,45 @@ manage(Window w, XWindowAttributes *wa)
 	if (c->y + HEIGHT(c) > c->mon->my + c->mon->mh)
 		c->y = c->mon->my + c->mon->mh - HEIGHT(c);
 	c->x = MAX(c->x, c->mon->mx);
-	/* only fix client y-offset, if the client center might cover the bar */
 	c->y = MAX(c->y, ((c->mon->by == c->mon->my) && (c->x + (c->w / 2) >= c->mon->wx)
 		&& (c->x + (c->w / 2) < c->mon->wx + c->mon->ww)) ? bh : c->mon->my);
-	/* c->bw = borderpx; */
 	c->bw = globalBorderToggled ? 0 : borderpx;
 
 	wc.border_width = c->bw;
 	XConfigureWindow(dpy, w, CWBorderWidth, &wc);
 	XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel);
-	configure(c); /* propagates border_width, if size doesn't change */
+	configure(c);
 	updatewindowtype(c);
 	updatesizehints(c);
 	updatewmhints(c);
-	c->x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2;   //   ALWAYS
-	c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2; //    center
+	c->x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2;
+	c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
 	XSelectInput(dpy, w, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
 	grabbuttons(c, 0);
+
+	// Check if the window's class is in the alwaysontopclasses
+	if (XGetClassHint(dpy, c->win, &classres)) {
+		for (int i = 0; i < LENGTH(alwaysontopclasses); i++) {
+		    if (strcmp(classres.res_class, alwaysontopclasses[i]) == 0) {
+		        c->isfloating = 1;
+		        c->isalwaysontop = 1;
+		        break;
+		    }
+		}
+		if (classres.res_name) XFree(classres.res_name);
+		if (classres.res_class) XFree(classres.res_class);
+	}
+
 	if (!c->isfloating)
 		c->isfloating = c->oldstate = trans != None || c->isfixed;
 	if (c->isfloating)
 		XRaiseWindow(dpy, c->win);
+
 	attach(c);
 	attachstack(c);
 	XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32, PropModeAppend,
 		(unsigned char *) &(c->win), 1);
-	XMoveResizeWindow(dpy, c->win, c->x + 2 * sw, c->y, c->w, c->h); /* some windows require this */
+	XMoveResizeWindow(dpy, c->win, c->x + 2 * sw, c->y, c->w, c->h);
 	setclientstate(c, NormalState);
 	if (c->mon == selmon)
 		unfocus(selmon->sel, 0);
@@ -1908,6 +2203,8 @@ manage(Window w, XWindowAttributes *wa)
 		swallow(term, c);
 	focus(NULL);
 }
+
+
 
 void
 mappingnotify(XEvent *e)
@@ -1948,59 +2245,59 @@ void maprequest(XEvent *e) {
 }
 
 // ORIGINAL
-/* void */
-/* monocle(Monitor *m) */
-/* { */
-/* 	unsigned int n = 0; */
-/* 	Client *c; */
+void
+monocle(Monitor *m)
+{
+	unsigned int n = 0;
+	Client *c;
 
-/* 	for (c = m->clients; c; c = c->next) */
-/* 		if (ISVISIBLE(c)) */
-/* 			n++; */
-/* 	if (n > 0) /\* override layout symbol *\/ */
-/* 		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n); */
-/* 	for (c = m->stack; c && (!ISVISIBLE(c) || c->isfloating); c = c->snext); */
-/* 	if (c && !c->isfloating) { */
-/* 		XMoveWindow(dpy, c->win, m->wx, m->wy); */
-/* 		resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0); */
-/* 		c = c->snext; */
-/* 	} */
-/* 	for (; c; c = c->snext) */
-/* 		if (!c->isfloating && ISVISIBLE(c)) */
-/* 			XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y); */
-/* } */
+	for (c = m->clients; c; c = c->next)
+		if (ISVISIBLE(c))
+			n++;
+	if (n > 0) /* override layout symbol */
+		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
+	for (c = m->stack; c && (!ISVISIBLE(c) || c->isfloating); c = c->snext);
+	if (c && !c->isfloating) {
+		XMoveWindow(dpy, c->win, m->wx, m->wy);
+		resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0);
+		c = c->snext;
+	}
+	for (; c; c = c->snext)
+		if (!c->isfloating && ISVISIBLE(c))
+			XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y);
+}
 
 // alphα + resize
-void monocle(Monitor *m) {
-    unsigned int n = 0;
-    Client *c, *focused = NULL;
+/* void monocle(Monitor *m) { */
+/*     unsigned int n = 0; */
+/*     Client *c, *focused = NULL; */
 
-    for (c = m->clients; c; c = c->next) {
-        if (ISVISIBLE(c))
-            n++;
-        if (c == selmon->sel)
-            focused = c;  // store the currently focused client
-    }
+/*     for (c = m->clients; c; c = c->next) { */
+/*         if (ISVISIBLE(c)) */
+/*             n++; */
+/*         if (c == selmon->sel) */
+/*             focused = c;  // store the currently focused client */
+/*     } */
 
-    if (n > 0) /* override layout symbol */
-        snprintf(m->ltsymbol, sizeof m->ltsymbol, " %d", n);
+/*     if (n > 0) /\* override layout symbol *\/ */
+/*         snprintf(m->ltsymbol, sizeof m->ltsymbol, " %d", n); */
 
-    if (focused) {
-        // Grow the window gaining focus
-        XMoveWindow(dpy, focused->win, m->wx, m->wy);
-        resize(focused, m->wx, m->wy, m->ww - 2 * focused->bw, m->wh - 2 * focused->bw, 0);
-        setWindowTransparency(focused->win, 1.0);  // make it opaque
-    }
+/*     if (focused) { */
+/*         // Grow the window gaining focus */
+/*         XMoveWindow(dpy, focused->win, m->wx, m->wy); */
+/*         resize(focused, m->wx, m->wy, m->ww - 2 * focused->bw, m->wh - 2 * focused->bw, 0); */
+/*         setWindowTransparency(focused->win, 1.0);  // make it opaque */
+/*     } */
 
-    for (c = m->stack; c; c = c->snext) {
-        if (c != focused && !c->isfloating && ISVISIBLE(c)) {
-            // Shrink the window losing focus
-            XMoveWindow(dpy, c->win, m->wx + (m->ww / 4), m->wy + (m->wh / 4));
-            resize(c, m->wx + (m->ww / 4), m->wy + (m->wh / 4), m->ww / 2 - 2 * c->bw, m->wh / 2 - 2 * c->bw, 0);
-            setWindowTransparency(c->win, 0.0);  // make these windows transparent
-        }
-    }
-}
+/*     for (c = m->stack; c; c = c->snext) { */
+/*         if (c != focused && !c->isfloating && ISVISIBLE(c)) { */
+/*             // Shrink the window losing focus */
+/*             XMoveWindow(dpy, c->win, m->wx + (m->ww / 4), m->wy + (m->wh / 4)); */
+/*             resize(c, m->wx + (m->ww / 4), m->wy + (m->wh / 4), m->ww / 2 - 2 * c->bw, m->wh / 2 - 2 * c->bw, 0); */
+/*             setWindowTransparency(c->win, 0.0);  // make these windows transparent */
+/*         } */
+/*     } */
+/* } */
 
 
 void truefullscreen(Monitor *m) {
@@ -2236,125 +2533,6 @@ movemouse(const Arg *arg)
 }
 
 
-
-// ADDED
-/* void */
-/* checkedgeswitch(void) */
-/* { */
-/*     int x; */
-/*     static int wasAtEdge = 0; */
-/*     static time_t last_switch_time = 0; */
-/*     time_t current_time; */
-/*     int isDragging = 0; */
-
-/*     XQueryPointer(dpy, root, &(Window){0}, &(Window){0}, &x, &(int){0}, &(int){0}, &(int){0}, &(unsigned int){0}); */
-/*     if (selmon->sel && selmon->sel->isfloating) */
-/*         isDragging = 1; // Checking if a window is currently being dragged */
-
-/*     time(&current_time); */
-
-/*     if (x < EDGETHRESHOLD) { */
-/*         if (!wasAtEdge || (current_time - last_switch_time) > 2) {  // 2 seconds delay */
-/*             if (selmon->tagset[selmon->seltags] > 1) { */
-/*                 if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) { */
-/*                     view(&((Arg) {.ui = selmon->tagset[selmon->seltags] >> 1})); */
-/*                     wasAtEdge = 1; */
-/*                     last_switch_time = current_time; */
-/*                 } */
-/*             } */
-/*         } */
-/*     } else if (x > (selmon->mx + selmon->mw - EDGETHRESHOLD)) { */
-/*         if (!wasAtEdge || (current_time - last_switch_time) > 2) { */
-/*             if (selmon->tagset[selmon->seltags] < (1 << (LENGTH(tags) - 1))) { */
-/*                 if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) { */
-/*                     view(&((Arg) {.ui = selmon->tagset[selmon->seltags] << 1})); */
-/*                     wasAtEdge = 1; */
-/*                     last_switch_time = current_time; */
-/*                 } */
-/*             } */
-/*         } */
-/*     } else { */
-/*         wasAtEdge = 0; */
-/*     } */
-/* } */
-
-
-
-// ADDED
-/* int cursorOverClient(int x, int y) { */
-/*     Client *c; */
-/*     for (c = selmon->clients; c; c = c->next) { */
-/*         if (ISVISIBLE(c) && */
-/*             x > c->x && x < c->x + c->w && */
-/*             y > c->y && y < c->y + c->h) { */
-/*             return 1; // cursor is over this client window */
-/*         } */
-/*     } */
-/*     return 0; // cursor isn't over any client window */
-/* } */
-
-
-int cursorOverClient(int x, int y) {
-    Client *c;
-    for (c = selmon->clients; c; c = c->next) {
-        if (ISVISIBLE(c)) {
-            // Consider left boundary as inside if window width matches monitor width
-            int leftBoundary = (c->w == selmon->mw) ? c->x : c->x + 1;
-
-            if (x >= leftBoundary && x < c->x + c->w &&
-                y > c->y && y < c->y + c->h) {
-                return 1; // cursor is over this client window
-            }
-        }
-    }
-    return 0; // cursor isn't over any client window
-}
-
-
-
-
-void checkedgeswitch(void) {
-    int x, y;
-    static int wasAtEdge = 0;
-    static time_t last_switch_time = 0;
-    time_t current_time;
-    int isDragging = 0;
-
-    XQueryPointer(dpy, root, &(Window){0}, &(Window){0}, &x, &y, &(int){0}, &(int){0}, &(unsigned int){0});
-
-    if (cursorOverClient(x, y)) {
-        return; // Exit the function if the cursor is over any client window
-    }
-
-    if (selmon->sel && selmon->sel->isfloating)
-        isDragging = 1; // Checking if a window is currently being dragged
-
-    time(&current_time);
-
-    if (x < EDGETHRESHOLD) {
-        if (!wasAtEdge || (current_time - last_switch_time) > 2) {  // 2 seconds delay
-            if (selmon->tagset[selmon->seltags] > 1) {
-                if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) {
-                    view(&((Arg) {.ui = selmon->tagset[selmon->seltags] >> 1}));
-                    wasAtEdge = 1;
-                    last_switch_time = current_time;
-                }
-            }
-        }
-    } else if (x > (selmon->mx + selmon->mw - EDGETHRESHOLD)) {
-        if (!wasAtEdge || (current_time - last_switch_time) > 2) {
-            if (selmon->tagset[selmon->seltags] < (1 << (LENGTH(tags) - 1))) {
-                if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) {
-                    view(&((Arg) {.ui = selmon->tagset[selmon->seltags] << 1}));
-                    wasAtEdge = 1;
-                    last_switch_time = current_time;
-                }
-            }
-        }
-    } else {
-        wasAtEdge = 0;
-    }
-}
 
 Client *
 nexttiled(Client *c)
@@ -2809,6 +2987,7 @@ setup(void)
 	cursor[CurNormal] = drw_cur_create(drw, XC_left_ptr);
 	cursor[CurResize] = drw_cur_create(drw, XC_sizing);
 	cursor[CurMove] = drw_cur_create(drw, XC_fleur);
+
 	/* init appearance */
 	scheme = ecalloc(LENGTH(colors), sizeof(Clr *));
 	for (i = 0; i < LENGTH(colors); i++)
@@ -3006,7 +3185,6 @@ int totalWidthOfClientsOnTag(unsigned int tagmask) {
 
 /*     showhide(c->snext); */
 /* } */
-
 
 
 void showhide(Client *c) {
@@ -4006,57 +4184,6 @@ void view(const Arg *arg) {
 }
 
 
-// ADDED
-void toggleborder(const Arg *arg) {
-    if (!selmon->sel) return;
-
-    // Toggle the global border state
-    if (arg->ui & ShiftMask) {
-        globalBorderToggled = !globalBorderToggled;
-        for (Client *c = selmon->clients; c; c = c->next) {
-            c->bw = globalBorderToggled ? 0 : borderpx;
-            configure(c);  // Apply changes immediately
-        }
-    } else {
-        // Toggle border for the focused window only
-        selmon->sel->bw = selmon->sel->bw == 0 ? borderpx : 0;
-    }
-
-    arrange(selmon);
-}
-
-
-
-
-// ADDED
-int clientsInTag(unsigned int tagmask) {
-    Client *c;
-    for (c = selmon->clients; c; c = c->next)
-        if (c->tags & tagmask)
-            return 1;
-    return 0;
-}
-
-// ADDED
-int numberOfFloatingClientsOnTag(unsigned int tag) {
-    int count = 0;
-    for (Client *c = selmon->clients; c; c = c->next) {
-        if (c->isfloating && (c->tags & tag)) {
-            count++;
-        }
-    }
-    return count;
-}
-
-// ADDED
-int numberOfVisibleClientsOnTag(unsigned int tagmask) {
-    int count = 0;
-    Client *c;
-    for (c = selmon->clients; c; c = c->next)
-        if (c->tags & tagmask)
-            count++;
-    return count;
-}
 
 
 

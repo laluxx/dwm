@@ -215,7 +215,9 @@ typedef struct {
 	int noswallow;
 	int monitor;
 	const char scratchkey;
+    int x, y, w, h;  // window position and size
 } Rule;
+
 
 typedef struct {
 	int monitor;
@@ -881,6 +883,47 @@ autostart_exec() {
 
 
 /* function implementations */
+/* void */
+/* applyrules(Client *c) */
+/* { */
+/* 	const char *class, *instance; */
+/* 	unsigned int i; */
+/* 	const Rule *r; */
+/* 	Monitor *m; */
+/* 	XClassHint ch = { NULL, NULL }; */
+
+/* 	/\* rule matching *\/ */
+/* 	c->isfloating = 0; */
+/* 	c->tags = 0; */
+/* 	c->scratchkey = 0; */
+/* 	XGetClassHint(dpy, c->win, &ch); */
+/* 	class    = ch.res_class ? ch.res_class : broken; */
+/* 	instance = ch.res_name  ? ch.res_name  : broken; */
+
+/* 	for (i = 0; i < LENGTH(rules); i++) { */
+/* 		r = &rules[i]; */
+/* 		if ((!r->title || strstr(c->name, r->title)) */
+/* 		&& (!r->class || strstr(class, r->class)) */
+/* 		&& (!r->instance || strstr(instance, r->instance))) */
+/* 		{ */
+/* 			c->isterminal = r->isterminal; */
+/* 			c->noswallow  = r->noswallow; */
+/* 			c->isfloating = r->isfloating; */
+/* 			c->tags |= r->tags; */
+/* 			c->scratchkey = r->scratchkey; */
+/* 			for (m = mons; m && m->num != r->monitor; m = m->next); */
+/* 			if (m) */
+/* 				c->mon = m; */
+/* 		} */
+/* 	} */
+/* 	if (ch.res_class) */
+/* 		XFree(ch.res_class); */
+/* 	if (ch.res_name) */
+/* 		XFree(ch.res_name); */
+
+/* 	c->tags = c->tags & TAGMASK ? c->tags & TAGMASK : c->mon->tagset[c->mon->seltags]; */
+/* } */
+
 void
 applyrules(Client *c)
 {
@@ -912,6 +955,10 @@ applyrules(Client *c)
 			for (m = mons; m && m->num != r->monitor; m = m->next);
 			if (m)
 				c->mon = m;
+			if (r->x != -1) c->x = r->x;
+			if (r->y != -1) c->y = r->y;
+			if (r->w != -1) c->w = r->w;
+			if (r->h != -1) c->h = r->h;
 		}
 	}
 	if (ch.res_class)
@@ -921,6 +968,12 @@ applyrules(Client *c)
 
 	c->tags = c->tags & TAGMASK ? c->tags & TAGMASK : c->mon->tagset[c->mon->seltags];
 }
+
+
+
+
+
+
 
 int
 applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
@@ -2139,76 +2192,6 @@ loadxrdb()
   XCloseDisplay(display);
 }
 
-/* void */
-/* manage(Window w, XWindowAttributes *wa) */
-/* { */
-/* 	Client *c, *t = NULL, *term = NULL; */
-/* 	Window trans = None; */
-/* 	XWindowChanges wc; */
-
-/* 	c = ecalloc(1, sizeof(Client)); */
-/* 	c->win = w; */
-/* 	c->pid = winpid(w); */
-/* 	/\* geometry *\/ */
-/* 	c->x = c->oldx = wa->x; */
-/* 	c->y = c->oldy = wa->y; */
-/* 	c->w = c->oldw = wa->width; */
-/* 	c->h = c->oldh = wa->height; */
-/* 	c->oldbw = wa->border_width; */
-
-/* 	updateicon(c); */
-/* 	updatetitle(c); */
-/* 	if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) { */
-/* 		c->mon = t->mon; */
-/* 		c->tags = t->tags; */
-/* 	} else { */
-/* 		c->mon = selmon; */
-/* 		applyrules(c); */
-/* 		term = termforwin(c); */
-/* 	} */
-
-/* 	if (c->x + WIDTH(c) > c->mon->mx + c->mon->mw) */
-/* 		c->x = c->mon->mx + c->mon->mw - WIDTH(c); */
-/* 	if (c->y + HEIGHT(c) > c->mon->my + c->mon->mh) */
-/* 		c->y = c->mon->my + c->mon->mh - HEIGHT(c); */
-/* 	c->x = MAX(c->x, c->mon->mx); */
-/* 	/\* only fix client y-offset, if the client center might cover the bar *\/ */
-/* 	c->y = MAX(c->y, ((c->mon->by == c->mon->my) && (c->x + (c->w / 2) >= c->mon->wx) */
-/* 		&& (c->x + (c->w / 2) < c->mon->wx + c->mon->ww)) ? bh : c->mon->my); */
-/* 	/\* c->bw = borderpx; *\/ */
-/* 	c->bw = globalBorderToggled ? 0 : borderpx; */
-
-/* 	wc.border_width = c->bw; */
-/* 	XConfigureWindow(dpy, w, CWBorderWidth, &wc); */
-/* 	XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel); */
-/* 	configure(c); /\* propagates border_width, if size doesn't change *\/ */
-/* 	updatewindowtype(c); */
-/* 	updatesizehints(c); */
-/* 	updatewmhints(c); */
-/* 	c->x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2;   //   ALWAYS */
-/* 	c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2; //    center */
-/* 	XSelectInput(dpy, w, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask); */
-/* 	grabbuttons(c, 0); */
-/* 	if (!c->isfloating) */
-/* 		c->isfloating = c->oldstate = trans != None || c->isfixed; */
-/* 	if (c->isfloating) */
-/* 		XRaiseWindow(dpy, c->win); */
-/* 	attach(c); */
-/* 	attachstack(c); */
-/* 	XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32, PropModeAppend, */
-/* 		(unsigned char *) &(c->win), 1); */
-/* 	XMoveResizeWindow(dpy, c->win, c->x + 2 * sw, c->y, c->w, c->h); /\* some windows require this *\/ */
-/* 	setclientstate(c, NormalState); */
-/* 	if (c->mon == selmon) */
-/* 		unfocus(selmon->sel, 0); */
-/* 	c->mon->sel = c; */
-/* 	arrange(c->mon); */
-/* 	XMapWindow(dpy, c->win); */
-/* 	if (term) */
-/* 		swallow(term, c); */
-/* 	focus(NULL); */
-/* } */
-
 void
 manage(Window w, XWindowAttributes *wa)
 {
@@ -2254,8 +2237,16 @@ manage(Window w, XWindowAttributes *wa)
 	updatewindowtype(c);
 	updatesizehints(c);
 	updatewmhints(c);
-	c->x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2;
-	c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
+
+	/* c->x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2; */
+	/* c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2; */
+
+    if (c->x == c->mon->mx && c->y == c->mon->my) {         // DONT
+        c->x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2;   // ALWAYS
+        c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2; // CENTER
+    }                                                    // thats rude
+
+
 	XSelectInput(dpy, w, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
 	grabbuttons(c, 0);
 

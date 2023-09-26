@@ -69,23 +69,47 @@ static const int taglayouts[] = {0, 1, 2, 0, 3, 2, 2, 2, 2};
 /* }; */
 
 // SCRATCHPAD PATCH
+/* static const Rule rules[] = { */
+/* 	/\* xprop(1): */
+/* 	 *	WM_CLASS(STRING) = instance, class */
+/* 	 *	WM_NAME(STRING) = title */
+/* 	 *\/ */
+/* 	/\* class            instance  title           tags mask  isfloating  isterminal  noswallow  monitor   scratch key *\/ */
+/* 	{ "obs",            NULL,     NULL,           0,         1,          0,          0,         -1,        0  }, */
+/* 	{ "Lutris",         NULL,     NULL,           0,         1,          0,          0,         -1,        0  }, */
+/* 	{ "firefox",        NULL,     NULL,           1 << 2,    0,          0,          -1,        -1,        0  }, */
+/* 	{ "discord",        NULL,     NULL,           1 << 3,    0,          0,          -1,        -1,        0  }, */
+/* 	{ "emacs",          NULL,     NULL,           1 << 0,    0,          0,          -1,        -1,        0  }, */
+/* 	{ "mpv",            NULL,     NULL,           1 << 5,    0,          0,          -1,        -1,        0  }, */
+/* 	{ "St",             NULL,     NULL,           0,         0,          1,          0,         -1,        0  }, */
+/* 	{ NULL,             NULL,     "Event Tester", 0,         0,          0,          1,         -1,        0  }, /\* xev *\/ */
+/* 	{ "Gimp",           NULL,     NULL,           0,         1,          0,          0,         -1,        0  }, */
+/* 	{ NULL,             NULL,     "scratchpad",   0,         1,          0,          0,         -1,       's' }, */
+/* }; */
+
+
 static const Rule rules[] = {
-	/* xprop(1):
-	 *	WM_CLASS(STRING) = instance, class
-	 *	WM_NAME(STRING) = title
-	 */
-	/* class            instance  title           tags mask  isfloating  isterminal  noswallow  monitor   scratch key */
-	{ "obs",            NULL,     NULL,           0,         1,          0,          0,         -1,        0  },
-	{ "Lutris",         NULL,     NULL,           0,         1,          0,          0,         -1,        0  },
-	{ "firefox",        NULL,     NULL,           1 << 2,    0,          0,          -1,        -1,        0  },
-	{ "discord",        NULL,     NULL,           1 << 3,    0,          0,          -1,        -1,        0  },
-	{ "emacs",          NULL,     NULL,           1 << 0,    0,          0,          -1,        -1,        0  },
-	{ "mpv",            NULL,     NULL,           1 << 5,    0,          0,          -1,        -1,        0  },
-	{ "St",             NULL,     NULL,           0,         0,          1,          0,         -1,        0  },
-	{ NULL,             NULL,     "Event Tester", 0,         0,          0,          1,         -1,        0  }, /* xev */
-	{ "Gimp",           NULL,     NULL,           0,         1,          0,          0,         -1,        0  },
-	{ NULL,             NULL,     "scratchpad",   0,         1,          0,          0,         -1,       's' },
+    /* xprop(1):
+     *  WM_CLASS(STRING) = instance, class
+     *  WM_NAME(STRING) = title
+     */
+    /*
+     * class               instance   title                 tags mask  isfloating  isterminal  noswallow  monitor  scratch key  x    y    w    h
+     */
+    { "obs",               NULL,      NULL,                 0,         1,          0,          0,         -1,      0,         0,   0,  20,  20 },
+    { NULL,                NULL,      "emacs-run-launcher", ~0,        1,          0,          0,         -1,      0,         0,   0,  700,  220 },
+    { "Lutris",            NULL,      NULL,                 0,         1,          0,          0,         -1,      0,        -1,  -1,  -1,  -1  },
+    { "firefox",           NULL,      NULL,                 1 << 2,    0,          0,          -1,        -1,      0,        -1,  -1,  -1,  -1  },
+    { "discord",           NULL,      NULL,                 1 << 3,    0,          0,          -1,        -1,      0,        -1,  -1,  -1,  -1  },
+    { "emacs",             NULL,      NULL,                 1 << 0,    0,          0,          -1,        -1,      0,        -1,  -1,  -1,  -1  },
+    { "mpv",               NULL,      NULL,                 1 << 5,    0,          0,          -1,        -1,      0,        -1,  -1,  -1,  -1  },
+    { "St",                NULL,      NULL,                 0,         0,          1,          0,         -1,      0,        -1,  -1,  -1,  -1  },
+    { NULL,                NULL,      "Event Tester",      0,         0,          0,          1,         -1,      0,        -1,  -1,  -1,  -1  },
+    { "Gimp",              NULL,      NULL,                 0,         1,          0,          0,         -1,      0,        -1,  -1,  -1,  -1  },
+    { NULL,                NULL,      "scratchpad",        0,         1,          0,          0,         -1,      's',      -1,  -1,  -1,  -1  },
 };
+
+
 
 
 
@@ -134,6 +158,7 @@ static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() 
 static const char *dmenucmd[] = { "dmrun"};
 static const char *termcmd[]  = { "kitty", NULL };
 static const char *stcmd[]  = { "st", NULL };
+static const char *emacsrunlaunchercmd[] = { "emacsclient", "-a", "", "-F", "((visibility . nil))", "-e", "(emacs-run-launcher)", NULL };
 static const char *gnomehudcmd[]  = { "gnomehud", NULL };
 static const char *zoomcmd[]  = { "boomer", NULL };
 
@@ -162,7 +187,8 @@ static Key keys[] = {
 	{ MODKEY,                       XK_w,      setlayout,      {.v = &layouts[0]} },
 	{ MODKEY,                       XK_e,      setlayout,      {.v = &layouts[1]} },
 	{ MODKEY,                       XK_r,      setlayout,      {.v = &layouts[2]} },
-	{ MODKEY|ShiftMask,             XK_r,      quit,           {1} },
+    { MODKEY|ShiftMask, XK_r, spawn, {.v = emacsrunlaunchercmd } },
+	{ MODKEY|ControlMask,           XK_r,      quit,           {1} },
 	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
 	{ MODKEY,                       XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = stcmd } },

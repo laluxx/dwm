@@ -166,6 +166,8 @@ static void detachstack(Client *c);
 static Monitor *dirtomon(int dir);
 static void drawbar(Monitor *m);
 static void drawbars(void);
+static void enqueue(Client *c);
+static void enqueuestack(Client *c);
 static void enternotify(XEvent *e);
 static void expose(XEvent *e);
 static void focus(Client *c);
@@ -197,6 +199,7 @@ static void resize(Client *c, int x, int y, int w, int h, int interact);
 static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
 static void restack(Monitor *m);
+static void rotatestack(const Arg *arg);
 static void run(void);
 static void scan(void);
 static int sendevent(Client *c, Atom proto);
@@ -246,6 +249,7 @@ static int xerror(Display *dpy, XErrorEvent *ee);
 static int xerrordummy(Display *dpy, XErrorEvent *ee);
 static int xerrorstart(Display *dpy, XErrorEvent *ee);
 static void zoom(const Arg *arg);
+static void autostart_exec(void);
 
 static void setcurrentdesktop(void);
 static void setdesktopnames(void);
@@ -303,6 +307,34 @@ static Window root, wmcheckwin;
 
 /* compile-time check if all tags fit into an unsigned int bit array. */
 struct NumTags { char limitexceeded[LENGTH(tags) > 31 ? -1 : 1]; };
+
+/* dwm will keep pid's of processes from autostart array and kill them at quit */
+static pid_t *autostart_pids;
+static size_t autostart_len;
+
+/* execute command from autostart array */
+static void
+autostart_exec() {
+	const char *const *p;
+	size_t i = 0;
+
+	/* count entries */
+	for (p = autostart; *p; autostart_len++, p++)
+		while (*++p);
+
+	autostart_pids = malloc(autostart_len * sizeof(pid_t));
+	for (p = autostart; *p; i++, p++) {
+		if ((autostart_pids[i] = fork()) == 0) {
+			setsid();
+			execvp(*p, (char *const *)p);
+			fprintf(stderr, "dwm: execvp %s\n", *p);
+			perror(" failed");
+			_exit(EXIT_FAILURE);
+		}
+		/* skip arguments */
+		while (*++p);
+	}
+}
 
 /* function implementations */
 void
@@ -839,6 +871,28 @@ drawbars(void)
 
 	for (m = mons; m; m = m->next)
 		drawbar(m);
+}
+
+void
+enqueue(Client *c)
+{
+	Client *l;
+	for (l = c->mon->clients; l && l->next; l = l->next);
+	if (l) {
+		l->next = c;
+		c->next = NULL;
+	}
+}
+
+void
+enqueuestack(Client *c)
+{
+	Client *l;
+	for (l = c->mon->stack; l && l->snext; l = l->snext);
+	if (l) {
+		l->snext = c;
+		c->snext = NULL;
+	}
 }
 
 void
@@ -1390,6 +1444,16 @@ propertynotify(XEvent *e)
 void
 quit(const Arg *arg)
 {
+	size_t i;
+
+	/* kill child processes */
+	for (i = 0; i < autostart_len; i++) {
+		if (0 < autostart_pids[i]) {
+			kill(autostart_pids[i], SIGTERM);
+			waitpid(autostart_pids[i], NULL, 0);
+		}
+	}
+
 	running = 0;
 }
 
@@ -1553,6 +1617,39 @@ restack(Monitor *m)
 	}
 	XSync(dpy, False);
 	while (XCheckMaskEvent(dpy, EnterWindowMask, &ev));
+}
+
+
+void
+rotatestack(const Arg *arg)
+{
+	Client *c = NULL, *f;
+
+	if (!selmon->sel)
+		return;
+	f = selmon->sel;
+	if (arg->i > 0) {
+		for (c = nexttiled(selmon->clients); c && nexttiled(c->next); c = nexttiled(c->next));
+		if (c){
+			detach(c);
+			attach(c);
+			detachstack(c);
+			attachstack(c);
+		}
+	} else {
+		if ((c = nexttiled(selmon->clients))){
+			detach(c);
+			enqueue(c);
+			detachstack(c);
+			enqueuestack(c);
+		}
+	}
+	if (c){
+		arrange(selmon);
+		//unfocus(f, 1);
+		focus(f);
+		restack(selmon);
+	}
 }
 
 void
@@ -2023,6 +2120,59 @@ showhide(Client *c)
         }
     }
 }
+
+/* void */
+/* showhide(Client *c) */
+/* { */
+/*     if (!c) */
+/*         return; */
+/*     if (ISVISIBLE(c)) { */
+/*         /\* show clients top down *\/ */
+/*         XMoveWindow(dpy, c->win, c->x, c->y); */
+/*         if (!c->mon->lt[c->mon->sellt]->arrange || c->isfloating) */
+/*             resize(c, c->x, c->y, c->w, c->h, 0); */
+/*         showhide(c->snext); */
+/*     } else { */
+/*         /\* hide clients bottom up *\/ */
+/*         showhide(c->snext); */
+        
+/*         // Get client's original position relative to monitor edge */
+/*         int relative_x = c->x - c->mon->mx; */
+        
+/*         // Get the single active tag number for current client */
+/*         int client_tag = 0; */
+/*         for (int i = 0; i < LENGTH(tags); i++) { */
+/*             if (c->tags & (1 << i)) { */
+/*                 client_tag = i + 1; */
+/*                 break; */
+/*             } */
+/*         } */
+        
+/*         // Get currently selected tag */
+/*         int selected_tag = 0; */
+/*         for (int i = 0; i < LENGTH(tags); i++) { */
+/*             if (c->mon->tagset[c->mon->seltags] & (1 << i)) { */
+/*                 selected_tag = i + 1; */
+/*                 break; */
+/*             } */
+/*         } */
+
+/*         // Always move right if the window's tag is higher than selected */
+/*         if (client_tag > selected_tag) { */
+/*             // Maintain relative position when moving right */
+/*             XMoveWindow(dpy, c->win, c->mon->mw + relative_x, c->y); */
+/*         } */
+/*         // Always move left if the window's tag is lower than selected */
+/*         else if (client_tag < selected_tag) { */
+/*             // Maintain relative position when moving left */
+/*             XMoveWindow(dpy, c->win, -c->mon->mw + relative_x, c->y); */
+/*         } */
+/*         // Fallback for same tag (shouldn't happen in normal operation) */
+/*         else { */
+/*             XMoveWindow(dpy, c->win, -c->mon->mw + relative_x, c->y); */
+/*         } */
+/*     } */
+/* } */
 
 void
 spawn(const Arg *arg)
@@ -2664,6 +2814,7 @@ main(int argc, char *argv[])
 	if (!(dpy = XOpenDisplay(NULL)))
 		die("dwm: cannot open display");
 	checkotherwm();
+	autostart_exec();
 	setup();
 #ifdef __OpenBSD__
 	if (pledge("stdio rpath proc exec", NULL) == -1)

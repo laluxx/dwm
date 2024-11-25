@@ -28,6 +28,17 @@ static const char *colors[][3]      = {
 #define MOUSEEDGESWITCH 1  // 1 to enable, 0 to disable
 #define DRAGGEDGESWITCH 1  // 1 to enable, 0 to disable
 
+
+
+static const char *const autostart[] = {
+    "sh", "-c", "xrandr --output \"$(xrandr | awk '/ connected/ {print $1; exit}')\" --mode 1920x1080 --rate 144", NULL,
+    "feh", "--bg-scale", "/home/l/Desktop/test/oglo/hyprland-rice/themes/ayu_dark/wallpaper.png", NULL,
+    "unclutter", NULL,
+    "picom", NULL,
+    "xset", "r", "rate", "160", "60", NULL,
+    NULL /* terminate */
+};
+
 /* tagging */
 static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 
@@ -79,6 +90,8 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_m,      spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
+	{ MODKEY|ShiftMask,             XK_j,      rotatestack,    {.i = +1 } },
+	{ MODKEY|ShiftMask,             XK_k,      rotatestack,    {.i = -1 } },
 	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
 	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
 	{ MODKEY,                       XK_i,      incnmaster,     {.i = +1 } },

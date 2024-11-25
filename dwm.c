@@ -57,16 +57,6 @@
 #define TAGSLENGTH              (LENGTH(tags))
 #define TEXTW(X)                (drw_fontset_getwidth(drw, (X)) + lrpad)
 
-/* enums */
-/* enum { CurNormal, CurResize, CurMove, CurLast }; /\* cursor *\/ */
-/* enum { SchemeNorm, SchemeSel }; /\* color schemes *\/ */
-/* enum { NetSupported, NetWMName, NetWMState, NetWMCheck, */
-/*        NetWMFullscreen, NetActiveWindow, NetWMWindowType, */
-/*        NetWMWindowTypeDialog, NetClientList, NetClientInfo, NetLast }; /\* EWMH atoms *\/ */
-/* enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /\* default atoms *\/ */
-/* enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, */
-/*        ClkClientWin, ClkRootWin, ClkLast }; /\* clicks *\/ */
-
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
 enum { SchemeNorm, SchemeSel }; /* color schemes */
 enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
@@ -123,6 +113,7 @@ typedef struct {
 } Layout;
 
 struct Monitor {
+
 	char ltsymbol[16];
 	float mfact;
 	int nmaster;
@@ -258,6 +249,9 @@ static void setnumdesktops(void);
 static void setviewport(void);
 static void updatecurrentdesktop(void);
 
+// FUNCTIONS
+int cursorOverClient(int x, int y);
+void checkedgeswitch(void);
 
 
 /* variables */
@@ -1470,9 +1464,14 @@ run(void)
 	XEvent ev;
 	/* main event loop */
 	XSync(dpy, False);
-	while (running && !XNextEvent(dpy, &ev))
-		if (handler[ev.type])
-			handler[ev.type](&ev); /* call handler */
+	while (running && !XNextEvent(dpy, &ev)) {
+        if (handler[ev.type]) {
+            handler[ev.type](&ev); /* call handler */        
+        }
+
+        checkedgeswitch();
+    }
+
 }
 
 void
@@ -1875,19 +1874,54 @@ seturgent(Client *c, int urg)
 void
 showhide(Client *c)
 {
-	if (!c)
-		return;
-	if (ISVISIBLE(c)) {
-		/* show clients top down */
-		XMoveWindow(dpy, c->win, c->x, c->y);
-		if (!c->mon->lt[c->mon->sellt]->arrange || c->isfloating)
-			resize(c, c->x, c->y, c->w, c->h, 0);
-		showhide(c->snext);
-	} else {
-		/* hide clients bottom up */
-		showhide(c->snext);
-		XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y);
-	}
+    if (!c)
+        return;
+    if (ISVISIBLE(c)) {
+        /* show clients top down */
+        XMoveWindow(dpy, c->win, c->x, c->y);
+        if (!c->mon->lt[c->mon->sellt]->arrange || c->isfloating)
+            resize(c, c->x, c->y, c->w, c->h, 0);
+        showhide(c->snext);
+    } else {
+        /* hide clients bottom up */
+        showhide(c->snext);
+        
+        // Get client's original position relative to monitor edge
+        int relative_x = c->x - c->mon->mx;
+        
+        // Get the single active tag number for current client
+        int client_tag = 0;
+        for (int i = 0; i < LENGTH(tags); i++) {
+            if (c->tags & (1 << i)) {
+                client_tag = i + 1;
+                break;
+            }
+        }
+        
+        // Get currently selected tag
+        int selected_tag = 0;
+        for (int i = 0; i < LENGTH(tags); i++) {
+            if (c->mon->tagset[c->mon->seltags] & (1 << i)) {
+                selected_tag = i + 1;
+                break;
+            }
+        }
+
+        // Always move right if the window's tag is higher than selected
+        if (client_tag > selected_tag) {
+            // Maintain relative position when moving right
+            XMoveWindow(dpy, c->win, c->mon->mw + relative_x, c->y);
+        }
+        // Always move left if the window's tag is lower than selected
+        else if (client_tag < selected_tag) {
+            // Maintain relative position when moving left
+            XMoveWindow(dpy, c->win, -c->mon->mw + relative_x, c->y);
+        }
+        // Fallback for same tag (shouldn't happen in normal operation)
+        else {
+            XMoveWindow(dpy, c->win, -c->mon->mw + relative_x, c->y);
+        }
+    }
 }
 
 void
@@ -1940,6 +1974,7 @@ tagmon(const Arg *arg)
 		return;
 	sendmon(selmon->sel, dirtomon(arg->i));
 }
+
 
 void
 tile(Monitor *m)
@@ -2490,4 +2525,67 @@ main(int argc, char *argv[])
 	cleanup();
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
+}
+
+// IMPLEMENTATION
+
+int cursorOverClient(int x, int y) {
+    Client *c;
+    for (c = selmon->clients; c; c = c->next) {
+        if (ISVISIBLE(c)) {
+            // Consider left boundary as inside if window width matches monitor width
+            int leftBoundary = (c->w == selmon->mw) ? c->x : c->x + 1;
+
+            if (x >= leftBoundary && x < c->x + c->w &&
+                y > c->y && y < c->y + c->h) {
+                return 1; // cursor is over this client window
+            }
+        }
+    }
+    return 0; // cursor isn't over any client window
+}
+
+#include <time.h>
+
+void checkedgeswitch(void) {
+    int x, y;
+    static int wasAtEdge = 0;
+    static time_t last_switch_time = 0;
+    time_t current_time;
+    int isDragging = 0;
+
+    XQueryPointer(dpy, root, &(Window){0}, &(Window){0}, &x, &y, &(int){0}, &(int){0}, &(unsigned int){0});
+
+    if (cursorOverClient(x, y)) {
+        return; // Exit the function if the cursor is over any client window
+    }
+
+    if (selmon->sel && selmon->sel->isfloating)
+        isDragging = 1; // Checking if a window is currently being dragged
+
+    time(&current_time);
+
+    if (x < EDGETHRESHOLD) {
+        if (!wasAtEdge || (current_time - last_switch_time) > 2) {  // 2 seconds delay
+            if (selmon->tagset[selmon->seltags] > 1) {
+                if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) {
+                    view(&((Arg) {.ui = selmon->tagset[selmon->seltags] >> 1}));
+                    wasAtEdge = 1;
+                    last_switch_time = current_time;
+                }
+            }
+        }
+    } else if (x > (selmon->mx + selmon->mw - EDGETHRESHOLD)) {
+        if (!wasAtEdge || (current_time - last_switch_time) > 2) {
+            if (selmon->tagset[selmon->seltags] < (1 << (LENGTH(tags) - 1))) {
+                if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) {
+                    view(&((Arg) {.ui = selmon->tagset[selmon->seltags] << 1}));
+                    wasAtEdge = 1;
+                    last_switch_time = current_time;
+                }
+            }
+        }
+    } else {
+        wasAtEdge = 0;
+    }
 }

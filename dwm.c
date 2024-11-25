@@ -1336,52 +1336,163 @@ resizeclient(Client *c, int x, int y, int w, int h)
 void
 resizemouse(const Arg *arg)
 {
-	int ocx, ocy, nw, nh;
-	Client *c;
-	Monitor *m;
-	XEvent ev;
+    int ocx, ocy, nw, nh;
+    int ocx2, ocy2, nx, ny;
+    Client *c;
+    Monitor *m;
+    XEvent ev;
+    int horizcorner, vertcorner;
+    int di;
+    unsigned int dui;
+    Window dummy;
+    Time lasttime = 0;
 
-	if (!(c = selmon->sel))
-		return;
-	restack(selmon);
-	ocx = c->x;
-	ocy = c->y;
-	if (XGrabPointer(dpy, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync,
-		None, cursor[CurResize]->cursor, CurrentTime) != GrabSuccess)
-		return;
-	XWarpPointer(dpy, None, c->win, 0, 0, 0, 0, c->w + c->bw - 1, c->h + c->bw - 1);
-	do {
-		XMaskEvent(dpy, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
-		switch(ev.type) {
-		case ConfigureRequest:
-		case Expose:
-		case MapRequest:
-			handler[ev.type](&ev);
-			break;
-		case MotionNotify:
-			nw = MAX(ev.xmotion.x - ocx - 2 * c->bw + 1, 1);
-			nh = MAX(ev.xmotion.y - ocy - 2 * c->bw + 1, 1);
-			if (c->mon->wx + nw >= selmon->wx && c->mon->wx + nw <= selmon->wx + selmon->ww
-			&& c->mon->wy + nh >= selmon->wy && c->mon->wy + nh <= selmon->wy + selmon->wh)
-			{
-				if (!c->isfloating && selmon->lt[selmon->sellt]->arrange
-				&& (abs(nw - c->w) > snap || abs(nh - c->h) > snap))
-					togglefloating(NULL);
-			}
-			if (!selmon->lt[selmon->sellt]->arrange || c->isfloating)
-				resize(c, c->x, c->y, nw, nh, 1);
-			break;
-		}
-	} while (ev.type != ButtonRelease);
-	XWarpPointer(dpy, None, c->win, 0, 0, 0, 0, c->w + c->bw - 1, c->h + c->bw - 1);
-	XUngrabPointer(dpy, CurrentTime);
-	while (XCheckMaskEvent(dpy, EnterWindowMask, &ev));
-	if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) {
-		sendmon(c, m);
-		selmon = m;
-		focus(NULL);
-	}
+    if (!(c = selmon->sel))
+        return;
+
+    restack(selmon);
+
+    // Store initial positions
+    ocx = c->x;
+    ocy = c->y;
+    ocx2 = c->x + c->w;
+    ocy2 = c->y + c->h;
+
+    // Try to grab pointer
+    if (XGrabPointer(dpy, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync,
+                     None, cursor[CurResize]->cursor, CurrentTime) != GrabSuccess)
+        return;
+
+    // Query pointer position
+    if (!XQueryPointer(dpy, c->win, &dummy, &dummy, &di, &di, &nx, &ny, &dui))
+        return;
+
+    // Determine which corner we're resizing from
+    horizcorner = nx < c->w / 2;
+    vertcorner = ny < c->h / 2;
+
+    // Warp pointer to the appropriate corner
+    XWarpPointer(dpy, None, c->win, 0, 0, 0, 0,
+                 horizcorner ? (-c->bw) : (c->w + c->bw - 1),
+                 vertcorner ? (-c->bw) : (c->h + c->bw - 1));
+
+    do {
+        XMaskEvent(dpy, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
+        switch(ev.type) {
+        case ConfigureRequest:
+        case Expose:
+        case MapRequest:
+            handler[ev.type](&ev);
+            break;
+        case MotionNotify:
+            if (ev.xmotion.time - lasttime <= (1000 / 60))
+                continue;
+            lasttime = ev.xmotion.time;
+
+            // Calculate new position and size based on which corner we're dragging
+            nx = horizcorner && ocx2 - ev.xmotion.x >= c->minw ? ev.xmotion.x : c->x;
+            ny = vertcorner && ocy2 - ev.xmotion.y >= c->minh ? ev.xmotion.y : c->y;
+            nw = MAX(horizcorner ? (ocx2 - nx) : (ev.xmotion.x - ocx - 2 * c->bw + 1), 1);
+            nh = MAX(vertcorner ? (ocy2 - ny) : (ev.xmotion.y - ocy - 2 * c->bw + 1), 1);
+
+            // Handle minimum size constraints
+            if (horizcorner && ev.xmotion.x > ocx2)
+                nx = ocx2 - (nw = c->minw);
+            if (vertcorner && ev.xmotion.y > ocy2)
+                ny = ocy2 - (nh = c->minh);
+
+            // Check if the new size is within monitor bounds
+            if (c->mon->wx + nw >= selmon->wx && c->mon->wx + nw <= selmon->wx + selmon->ww
+                && c->mon->wy + nh >= selmon->wy && c->mon->wy + nh <= selmon->wy + selmon->wh)
+                {
+                    // Toggle floating if necessary
+                    if (!c->isfloating && selmon->lt[selmon->sellt]->arrange
+                        && (abs(nw - c->w) > snap || abs(nh - c->h) > snap))
+                        togglefloating(NULL);
+                }
+
+            // Apply the resize if we're floating or there's no layout
+            if (!selmon->lt[selmon->sellt]->arrange || c->isfloating)
+                resize(c, nx, ny, nw, nh, 1);
+            break;
+        }
+    } while (ev.type != ButtonRelease);
+
+    // Warp pointer back to the corner
+    XWarpPointer(dpy, None, c->win, 0, 0, 0, 0,
+                 horizcorner ? (-c->bw) : (c->w + c->bw - 1),
+                 vertcorner ? (-c->bw) : (c->h + c->bw - 1));
+
+    XUngrabPointer(dpy, CurrentTime);
+    while (XCheckMaskEvent(dpy, EnterWindowMask, &ev));
+
+    // Check if we need to move to a different monitor
+    if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) {
+        sendmon(c, m);
+        selmon = m;
+        focus(NULL);
+    }
 }
+
+/* void */
+/* resizemouse(const Arg *arg) */
+/* { */
+/* 	int ocx, ocy, nw, nh; */
+/* 	Client *c; */
+/* 	Monitor *m; */
+/* 	XEvent ev; */
+
+/* 	if (!(c = selmon->sel)) */
+/* 		return; */
+/* 	restack(selmon); */
+/* 	ocx = c->x; */
+/* 	ocy = c->y; */
+/* 	ocx2 = c->x + c->w; */
+/* 	ocy2 = c->y + c->h; */
+/* 	if (XGrabPointer(dpy, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, */
+/* 		None, cursor[CurResize]->cursor, CurrentTime) != GrabSuccess) */
+/* 		return; */
+/* 	if (!XQueryPointer (dpy, c->win, &dummy, &dummy, &di, &di, &nx, &ny, &dui)) */
+/* 		return; */
+/* 	horizcorner = nx < c->w / 2; */
+/* 	vertcorner  = ny < c->h / 2; */
+/* 	XWarpPointer (dpy, None, c->win, 0, 0, 0, 0, */
+/* 			horizcorner ? (-c->bw) : (c->w + c->bw -1), */
+/* 			vertcorner  ? (-c->bw) : (c->h + c->bw -1)); */
+/* 	do { */
+/* 		XMaskEvent(dpy, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev); */
+/* 		switch(ev.type) { */
+/* 		case ConfigureRequest: */
+/* 		case Expose: */
+/* 		case MapRequest: */
+/* 			handler[ev.type](&ev); */
+/* 			break; */
+/* 		case MotionNotify: */
+/* 			nw = MAX(ev.xmotion.x - ocx - 2 * c->bw + 1, 1); */
+/* 			nh = MAX(ev.xmotion.y - ocy - 2 * c->bw + 1, 1); */
+/* 			if (c->mon->wx + nw >= selmon->wx && c->mon->wx + nw <= selmon->wx + selmon->ww */
+/* 			&& c->mon->wy + nh >= selmon->wy && c->mon->wy + nh <= selmon->wy + selmon->wh) */
+/* 			{ */
+/* 				if (!c->isfloating && selmon->lt[selmon->sellt]->arrange */
+/* 				&& (abs(nw - c->w) > snap || abs(nh - c->h) > snap)) */
+/* 					togglefloating(NULL); */
+/* 			} */
+/* 			if (!selmon->lt[selmon->sellt]->arrange || c->isfloating) */
+/* 				resize(c, nx, ny, nw, nh, 1); */
+/* 			break; */
+/* 		} */
+/* 	} while (ev.type != ButtonRelease); */
+/* 	XWarpPointer(dpy, None, c->win, 0, 0, 0, 0, */
+/* 		      horizcorner ? (-c->bw) : (c->w + c->bw - 1), */
+/* 		      vertcorner ? (-c->bw) : (c->h + c->bw - 1)); */
+/* 	XUngrabPointer(dpy, CurrentTime); */
+/* 	while (XCheckMaskEvent(dpy, EnterWindowMask, &ev)); */
+/* 	if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) { */
+/* 		sendmon(c, m); */
+/* 		selmon = m; */
+/* 		focus(NULL); */
+/* 	} */
+/* } */
 
 void
 restack(Monitor *m)

@@ -856,6 +856,8 @@ focusmon(const Arg *arg)
 	unfocus(selmon->sel, 0);
 	selmon = m;
 	focus(NULL);
+	if (selmon->sel)
+		XWarpPointer(dpy, None, selmon->sel->win, 0, 0, 0, 0, selmon->sel->w/2, selmon->sel->h/2);
 }
 
 void
@@ -881,6 +883,7 @@ focusstack(const Arg *arg)
 	if (c) {
 		focus(c);
 		restack(selmon);
+		XWarpPointer(dpy, None, c->win, 0, 0, 0, 0, c->w/2, c->h/2);
 	}
 }
 
@@ -1128,6 +1131,8 @@ manage(Window w, XWindowAttributes *wa)
 	c->mon->sel = c;
 	arrange(c->mon);
 	XMapWindow(dpy, c->win);
+	if (c && c->mon == selmon)
+		XWarpPointer(dpy, None, c->win, 0, 0, 0, 0, c->w/2, c->h/2);
 	focus(NULL);
 }
 
@@ -1433,66 +1438,6 @@ resizemouse(const Arg *arg)
         focus(NULL);
     }
 }
-
-/* void */
-/* resizemouse(const Arg *arg) */
-/* { */
-/* 	int ocx, ocy, nw, nh; */
-/* 	Client *c; */
-/* 	Monitor *m; */
-/* 	XEvent ev; */
-
-/* 	if (!(c = selmon->sel)) */
-/* 		return; */
-/* 	restack(selmon); */
-/* 	ocx = c->x; */
-/* 	ocy = c->y; */
-/* 	ocx2 = c->x + c->w; */
-/* 	ocy2 = c->y + c->h; */
-/* 	if (XGrabPointer(dpy, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, */
-/* 		None, cursor[CurResize]->cursor, CurrentTime) != GrabSuccess) */
-/* 		return; */
-/* 	if (!XQueryPointer (dpy, c->win, &dummy, &dummy, &di, &di, &nx, &ny, &dui)) */
-/* 		return; */
-/* 	horizcorner = nx < c->w / 2; */
-/* 	vertcorner  = ny < c->h / 2; */
-/* 	XWarpPointer (dpy, None, c->win, 0, 0, 0, 0, */
-/* 			horizcorner ? (-c->bw) : (c->w + c->bw -1), */
-/* 			vertcorner  ? (-c->bw) : (c->h + c->bw -1)); */
-/* 	do { */
-/* 		XMaskEvent(dpy, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev); */
-/* 		switch(ev.type) { */
-/* 		case ConfigureRequest: */
-/* 		case Expose: */
-/* 		case MapRequest: */
-/* 			handler[ev.type](&ev); */
-/* 			break; */
-/* 		case MotionNotify: */
-/* 			nw = MAX(ev.xmotion.x - ocx - 2 * c->bw + 1, 1); */
-/* 			nh = MAX(ev.xmotion.y - ocy - 2 * c->bw + 1, 1); */
-/* 			if (c->mon->wx + nw >= selmon->wx && c->mon->wx + nw <= selmon->wx + selmon->ww */
-/* 			&& c->mon->wy + nh >= selmon->wy && c->mon->wy + nh <= selmon->wy + selmon->wh) */
-/* 			{ */
-/* 				if (!c->isfloating && selmon->lt[selmon->sellt]->arrange */
-/* 				&& (abs(nw - c->w) > snap || abs(nh - c->h) > snap)) */
-/* 					togglefloating(NULL); */
-/* 			} */
-/* 			if (!selmon->lt[selmon->sellt]->arrange || c->isfloating) */
-/* 				resize(c, nx, ny, nw, nh, 1); */
-/* 			break; */
-/* 		} */
-/* 	} while (ev.type != ButtonRelease); */
-/* 	XWarpPointer(dpy, None, c->win, 0, 0, 0, 0, */
-/* 		      horizcorner ? (-c->bw) : (c->w + c->bw - 1), */
-/* 		      vertcorner ? (-c->bw) : (c->h + c->bw - 1)); */
-/* 	XUngrabPointer(dpy, CurrentTime); */
-/* 	while (XCheckMaskEvent(dpy, EnterWindowMask, &ev)); */
-/* 	if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) { */
-/* 		sendmon(c, m); */
-/* 		selmon = m; */
-/* 		focus(NULL); */
-/* 	} */
-/* } */
 
 void
 restack(Monitor *m)
@@ -2112,6 +2057,9 @@ unmanage(Client *c, int destroyed)
 	focus(NULL);
 	updateclientlist();
 	arrange(m);
+	if (m == selmon && m->sel)
+		XWarpPointer(dpy, None, m->sel->win, 0, 0, 0, 0,
+		             m->sel->w/2, m->sel->h/2);
 }
 
 void

@@ -4,3 +4,11 @@
 #+OPTIONS: toc:2
 
 This is my dwm, there are many like it, but this one is mine... 
+
+* TODO Lock cursor to window
+a way to lock the cursor to a window in the current tag
+so that the cursor can't exit the window geometry,
+change the border of the locked window to red or whatever.
+Each tag can have only one locked window,
+When switching tag if there is a locked window in the tag you are goint to,
+make sure the cursor warps at the center of the locked window automatically.

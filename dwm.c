@@ -208,8 +208,10 @@ static void maprequest(XEvent *e);
 static void monocle(Monitor *m);
 static void motionnotify(XEvent *e);
 static void movemouse(const Arg *arg);
+static unsigned int nexttag(void);
 static Client *nexttiled(Client *c);
 static void pop(Client *c);
+static unsigned int prevtag(void);
 static void propertynotify(XEvent *e);
 static void quit(const Arg *arg);
 static Monitor *recttomon(int x, int y, int w, int h);
@@ -238,6 +240,8 @@ static void spawn(const Arg *arg);
 static void spawnbar();
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
+static void tagtonext(const Arg *arg);
+static void tagtoprev(const Arg *arg);
 static void tile(Monitor *m);
 static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
@@ -259,6 +263,8 @@ static void updatetitle(Client *c);
 static void updatewindowtype(Client *c);
 static void updatewmhints(Client *c);
 static void view(const Arg *arg);
+static void viewnext(const Arg *arg);
+static void viewprev(const Arg *arg);
 static void window_set_state(Display *dpy, Window win, long state);
 static void window_map(Display *dpy, Client *c, int deiconify);
 static void window_unmap(Display *dpy, Window win, Window root, int iconify);
@@ -1445,6 +1451,29 @@ movemouse(const Arg *arg)
 	}
 }
 
+unsigned int
+nexttag(void)
+{
+	unsigned int seltag = selmon->tagset[selmon->seltags];
+	unsigned int usedtags = 0;
+	Client *c = selmon->clients;
+
+	if (!c)
+		return seltag;
+
+	/* skip vacant tags */
+	do {
+		usedtags |= c->tags;
+		c = c->next;
+	} while (c);
+
+	do {
+		seltag = seltag == (1 << (LENGTH(tags) - 1)) ? 1 : seltag << 1;
+	} while (!(seltag & usedtags));
+
+	return seltag;
+}
+
 Client *
 nexttiled(Client *c)
 {
@@ -1459,6 +1488,28 @@ pop(Client *c)
 	attach(c);
 	focus(c);
 	arrange(c->mon);
+}
+
+unsigned int
+prevtag(void)
+{
+	unsigned int seltag = selmon->tagset[selmon->seltags];
+	unsigned int usedtags = 0;
+	Client *c = selmon->clients;
+	if (!c)
+		return seltag;
+
+	/* skip vacant tags */
+	do {
+		usedtags |= c->tags;
+		c = c->next;
+	} while (c);
+
+	do {
+		seltag = seltag == 1 ? (1 << (LENGTH(tags) - 1)) : seltag >> 1;
+	} while (!(seltag & usedtags));
+
+	return seltag;
 }
 
 void
@@ -2184,6 +2235,7 @@ setupepoll(void)
 /* 	grabkeys(); */
 /* 	focus(NULL); */
 /* } */
+
 void
 setviewport(void){
 	long data[] = { 0, 0 };
@@ -2202,6 +2254,7 @@ seturgent(Client *c, int urg)
 	XSetWMHints(dpy, c->win, wmh);
 	XFree(wmh);
 }
+
 
 void
 showhide(Client *c)
@@ -2367,6 +2420,36 @@ tagmon(const Arg *arg)
 	sendmon(selmon->sel, dirtomon(arg->i));
 }
 
+
+void
+tagtonext(const Arg *arg)
+{
+	unsigned int tmp;
+
+	if (selmon->sel == NULL)
+		return;
+
+	if ((tmp = nexttag()) == selmon->tagset[selmon->seltags])
+		return;
+
+	tag(&(const Arg){.ui = tmp });
+	view(&(const Arg){.ui = tmp });
+}
+
+void
+tagtoprev(const Arg *arg)
+{
+	unsigned int tmp;
+
+	if (selmon->sel == NULL)
+		return;
+
+	if ((tmp = prevtag()) == selmon->tagset[selmon->seltags])
+		return;
+
+	tag(&(const Arg){.ui = tmp });
+	view(&(const Arg){.ui = tmp });
+}
 
 void
 tile(Monitor *m)
@@ -2845,6 +2928,18 @@ view(const Arg *arg)
 	updatecurrentdesktop();
 }
 
+void
+viewnext(const Arg *arg)
+{
+	view(&(const Arg){.ui = nexttag()});
+}
+
+void
+viewprev(const Arg *arg)
+{
+	view(&(const Arg){.ui = prevtag()});
+}
+ 
 Client *
 wintoclient(Window w)
 {

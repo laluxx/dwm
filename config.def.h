@@ -28,7 +28,7 @@ static const char *colors[][3]      = {
 #define MOUSEEDGESWITCH 1  // 1 to enable, 0 to disable
 #define DRAGGEDGESWITCH 1  // 1 to enable, 0 to disable
 
-
+static const int hideDelay = 2000; // Delay in milliseconds before hiding windows
 
 static const char *const autostart[] = {
     "sh", "-c", "xrandr --output \"$(xrandr | awk '/ connected/ {print $1; exit}')\" --mode 1920x1080 --rate 144", NULL,
@@ -40,7 +40,7 @@ static const char *const autostart[] = {
 };
 
 /* tagging */
-static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+static const char *tags[] = { "󰟜", "", "", "", "", "6", "7", "8", "9" };
 
 static const Rule rules[] = {
 	/* xprop(1):
@@ -85,11 +85,15 @@ static const char *boomercmd[]  = { "boomer", NULL };
 #include "selfrestart.c"
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
+    { MODKEY,                       XK_f,      viewnext,       {0} },
+    { MODKEY,                       XK_b,      viewprev,       {0} },
+    { MODKEY|ShiftMask,             XK_f,      tagtonext,      {0} },
+    { MODKEY|ShiftMask,             XK_b,      tagtoprev,      {0} },
 	{ MODKEY,                       XK_z,      spawn,          {.v = boomercmd } },
 	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
 	{ MODKEY,                       XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_m,      spawn,          {.v = termcmd } },
-	{ MODKEY,                       XK_b,      togglebar,      {0} },
+	{ MODKEY|ControlMask,           XK_b,      togglebar,      {0} },
 	{ MODKEY|ShiftMask,             XK_j,      rotatestack,    {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_k,      rotatestack,    {.i = -1 } },
 	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
@@ -102,7 +106,7 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY,                       XK_q,      killclient,     {0} },
 	{ MODKEY,                       XK_t,      setlayout,      {.v = &layouts[0]} },
-	{ MODKEY,                       XK_f,      setlayout,      {.v = &layouts[1]} },
+	/* { MODKEY,                       XK_f,      setlayout,      {.v = &layouts[1]} }, */
 	/* { MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} }, */
 	{ MODKEY,                       XK_space,  setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
@@ -112,6 +116,10 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_period, focusmon,       {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_comma,  tagmon,         {.i = -1 } },
 	{ MODKEY|ShiftMask,             XK_period, tagmon,         {.i = +1 } },
+    { MODKEY,                       XK_Right,  viewnext,       {0} },
+    { MODKEY,                       XK_Left,   viewprev,       {0} },
+    { MODKEY|ShiftMask,             XK_Right,  tagtonext,      {0} },
+    { MODKEY|ShiftMask,             XK_Left,   tagtoprev,      {0} },
 	{ MODKEY,                       XK_minus,  smartresizegaps,{.i = -1 } },
 	{ MODKEY,                       XK_equal,  smartresizegaps,{.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_equal,  setgaps,        {.i = 0  } },

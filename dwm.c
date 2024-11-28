@@ -263,8 +263,6 @@ static void updatetitle(Client *c);
 static void updatewindowtype(Client *c);
 static void updatewmhints(Client *c);
 static void view(const Arg *arg);
-static void viewnext(const Arg *arg);
-static void viewprev(const Arg *arg);
 static void window_set_state(Display *dpy, Window win, long state);
 static void window_map(Display *dpy, Client *c, int deiconify);
 static void window_unmap(Display *dpy, Window win, Window root, int iconify);
@@ -291,8 +289,17 @@ void checkedgeswitch(void);
 void aspectresize(const Arg *arg);
 void smartresizegaps(const Arg *arg);
 void applyrememberedsize(Client *c);
+void viewvertical(const Arg *arg);
+
+void viewup(const Arg *arg);
+void viewdown(const Arg *arg);
+void viewnext(const Arg *arg);
+void viewprev(const Arg *arg);
+
 
 // VARIABLES
+static int isVerticalMove = 0;  // 0 for horizontal, 1 for vertical
+
 int remembered_width = 0;
 int remembered_height = 0;
 
@@ -1705,28 +1712,26 @@ resizemouse(const Arg *arg)
 void
 restack(Monitor *m)
 {
-	Client *c;
-	XEvent ev;
-	XWindowChanges wc;
-
-	drawbar(m);
-	if (!m->sel)
-		return;
-	if (m->sel->isfloating || !m->lt[m->sellt]->arrange)
-		XRaiseWindow(dpy, m->sel->win);
-	if (m->lt[m->sellt]->arrange) {
-		wc.stack_mode = Below;
-		wc.sibling = m->barwin;
-		for (c = m->stack; c; c = c->snext)
-			if (!c->isfloating && ISVISIBLE(c)) {
-				XConfigureWindow(dpy, c->win, CWSibling|CWStackMode, &wc);
-				wc.sibling = c->win;
-			}
-	}
-	XSync(dpy, False);
-	while (XCheckMaskEvent(dpy, EnterWindowMask, &ev));
+    Client *c;
+    XEvent ev;
+    XWindowChanges wc;
+    drawbar(m);
+    if (!m->sel)
+        return;
+    if (m->sel->isfloating || !m->lt[m->sellt]->arrange)
+        XRaiseWindow(dpy, m->sel->win);
+    if (m->lt[m->sellt]->arrange) {
+        wc.stack_mode = Below;
+        wc.sibling = m->barwin;
+        for (c = m->stack; c; c = c->snext)
+            if (!c->isfloating && ISVISIBLE(c)) {
+                XConfigureWindow(dpy, c->win, CWSibling|CWStackMode, &wc);
+                wc.sibling = c->win;
+            }
+    }
+    XSync(dpy, False);
+    while (XCheckMaskEvent(dpy, EnterWindowMask, &ev));
 }
-
 
 void
 rotatestack(const Arg *arg)
@@ -1760,6 +1765,8 @@ rotatestack(const Arg *arg)
 	}
 }
 
+// TODO checkedgeswitch() should not be here
+// instead use the mouse pos callback
 void
 run(void)
 {
@@ -2256,6 +2263,8 @@ seturgent(Client *c, int urg)
 }
 
 
+
+
 void
 showhide(Client *c)
 {
@@ -2273,6 +2282,7 @@ showhide(Client *c)
         
         // Get client's original position relative to monitor edge
         int relative_x = c->x - c->mon->mx;
+        int relative_y = c->y - c->mon->my;
         
         // Get the single active tag number for current client
         int client_tag = 0;
@@ -2292,22 +2302,86 @@ showhide(Client *c)
             }
         }
 
-        // Always move right if the window's tag is higher than selected
-        if (client_tag > selected_tag) {
-            // Maintain relative position when moving right
-            XMoveWindow(dpy, c->win, c->mon->mw + relative_x, c->y);
-        }
-        // Always move left if the window's tag is lower than selected
-        else if (client_tag < selected_tag) {
-            // Maintain relative position when moving left
-            XMoveWindow(dpy, c->win, -c->mon->mw + relative_x, c->y);
-        }
-        // Fallback for same tag (shouldn't happen in normal operation)
-        else {
-            XMoveWindow(dpy, c->win, -c->mon->mw + relative_x, c->y);
+        if (isVerticalMove) {
+            // Vertical movement
+            if (client_tag > selected_tag) {
+                // Move down
+                XMoveWindow(dpy, c->win, c->x, c->mon->mh + relative_y);
+            } else if (client_tag < selected_tag) {
+                // Move up
+                XMoveWindow(dpy, c->win, c->x, -c->mon->mh + relative_y);
+            } else {
+                // Fallback (shouldn't happen in normal operation)
+                XMoveWindow(dpy, c->win, c->x, -c->mon->mh + relative_y);
+            }
+        } else {
+            // Horizontal movement (original behavior)
+            if (client_tag > selected_tag) {
+                // Move right
+                XMoveWindow(dpy, c->win, c->mon->mw + relative_x, c->y);
+            } else if (client_tag < selected_tag) {
+                // Move left
+                XMoveWindow(dpy, c->win, -c->mon->mw + relative_x, c->y);
+            } else {
+                // Fallback (shouldn't happen in normal operation)
+                XMoveWindow(dpy, c->win, -c->mon->mw + relative_x, c->y);
+            }
         }
     }
 }
+
+/* void */
+/* showhide(Client *c) */
+/* { */
+/*     if (!c) */
+/*         return; */
+/*     if (ISVISIBLE(c)) { */
+/*         /\* show clients top down *\/ */
+/*         XMoveWindow(dpy, c->win, c->x, c->y); */
+/*         if (!c->mon->lt[c->mon->sellt]->arrange || c->isfloating) */
+/*             resize(c, c->x, c->y, c->w, c->h, 0); */
+/*         showhide(c->snext); */
+/*     } else { */
+/*         /\* hide clients bottom up *\/ */
+/*         showhide(c->snext); */
+        
+/*         // Get client's original position relative to monitor edge */
+/*         int relative_x = c->x - c->mon->mx; */
+        
+/*         // Get the single active tag number for current client */
+/*         int client_tag = 0; */
+/*         for (int i = 0; i < LENGTH(tags); i++) { */
+/*             if (c->tags & (1 << i)) { */
+/*                 client_tag = i + 1; */
+/*                 break; */
+/*             } */
+/*         } */
+        
+/*         // Get currently selected tag */
+/*         int selected_tag = 0; */
+/*         for (int i = 0; i < LENGTH(tags); i++) { */
+/*             if (c->mon->tagset[c->mon->seltags] & (1 << i)) { */
+/*                 selected_tag = i + 1; */
+/*                 break; */
+/*             } */
+/*         } */
+
+/*         // Always move right if the window's tag is higher than selected */
+/*         if (client_tag > selected_tag) { */
+/*             // Maintain relative position when moving right */
+/*             XMoveWindow(dpy, c->win, c->mon->mw + relative_x, c->y); */
+/*         } */
+/*         // Always move left if the window's tag is lower than selected */
+/*         else if (client_tag < selected_tag) { */
+/*             // Maintain relative position when moving left */
+/*             XMoveWindow(dpy, c->win, -c->mon->mw + relative_x, c->y); */
+/*         } */
+/*         // Fallback for same tag (shouldn't happen in normal operation) */
+/*         else { */
+/*             XMoveWindow(dpy, c->win, -c->mon->mw + relative_x, c->y); */
+/*         } */
+/*     } */
+/* } */
 
 /* void */
 /* showhide(Client *c) */
@@ -2915,29 +2989,57 @@ window_unmap(Display *dpy, Window win, Window root, int iconify)
 	XUngrabServer(dpy);
 }
 
+
 void
 view(const Arg *arg)
 {
-	if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
-		return;
-	selmon->seltags ^= 1; /* toggle sel tagset */
-	if (arg->ui & TAGMASK)
-		selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
-	focus(NULL);
-	arrange(selmon);
-	updatecurrentdesktop();
+    if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
+        return;
+    selmon->seltags ^= 1; /* toggle sel tagset */
+    if (arg->ui & TAGMASK)
+        selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+    focus(NULL);
+    arrange(selmon);
+    updatecurrentdesktop();
+}
+
+void
+viewvertical(const Arg *arg)
+{
+    isVerticalMove = 1;  // Set the global flag for vertical movement
+    if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
+        return;
+    selmon->seltags ^= 1; /* toggle sel tagset */
+    if (arg->ui & TAGMASK)
+        selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+    focus(NULL);
+    arrange(selmon);
+    updatecurrentdesktop();
+    isVerticalMove = 0;  // Reset the flag after arrangement
+}
+
+void
+viewup(const Arg *arg)
+{
+    viewvertical(&(const Arg){.ui = prevtag()});
+}
+
+void
+viewdown(const Arg *arg)
+{
+    viewvertical(&(const Arg){.ui = nexttag()});
 }
 
 void
 viewnext(const Arg *arg)
 {
-	view(&(const Arg){.ui = nexttag()});
+    view(&(const Arg){.ui = nexttag()});
 }
 
 void
 viewprev(const Arg *arg)
 {
-	view(&(const Arg){.ui = prevtag()});
+    view(&(const Arg){.ui = prevtag()});
 }
  
 Client *
@@ -3210,6 +3312,26 @@ void checkedgeswitch(void) {
             if (selmon->tagset[selmon->seltags] < (1 << (LENGTH(tags) - 1))) {
                 if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) {
                     view(&((Arg) {.ui = selmon->tagset[selmon->seltags] << 1}));
+                    wasAtEdge = 1;
+                    last_switch_time = current_time;
+                }
+            }
+        }
+    } else if (y < EDGETHRESHOLD) {
+        if (!wasAtEdge || (current_time - last_switch_time) > 2) {
+            if (selmon->tagset[selmon->seltags] > 1) {
+                if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) {
+                    viewvertical(&((Arg) {.ui = prevtag()}));
+                    wasAtEdge = 1;
+                    last_switch_time = current_time;
+                }
+            }
+        }
+    } else if (y > (selmon->my + selmon->mh - EDGETHRESHOLD)) {
+        if (!wasAtEdge || (current_time - last_switch_time) > 2) {
+            if (selmon->tagset[selmon->seltags] < (1 << (LENGTH(tags) - 1))) {
+                if ((!isDragging && MOUSEEDGESWITCH) || (isDragging && DRAGGEDGESWITCH)) {
+                    viewvertical(&((Arg) {.ui = nexttag()}));
                     wasAtEdge = 1;
                     last_switch_time = current_time;
                 }

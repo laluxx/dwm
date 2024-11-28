@@ -1,15 +1,17 @@
 /* See LICENSE file for copyright and license details. */
 
 /* appearance */
-static const unsigned int borderpx  = 1;        /* border pixel of windows */
+static const unsigned int borderpx  = 0;        /* border pixel of windows */
 static const unsigned int gappx     = 5;        /* gaps between windows */
-static const unsigned int snap      = 32;       /* snap pixel */
+static const unsigned int snap      = 0;       /* snap pixel */
 static const int showbar            = 1;        /* 0 means no bar */
 static const int topbar             = 1;        /* 0 means bottom bar */
 
 static const int  usealtbar        = 1;        /* 1 means use non-dwm status bar */
 static const char *altbarclass     = "Polybar"; /* Alternate bar class name */
-static const char *altbarcmd       = "$HOME/bar.sh"; /* Alternate bar launch command */
+static const char *altbarcmd       = "$HOME/.config/emacs/polybar/launch.sh --cuts"; /* Alternate bar launch command */
+
+
 
 static const char *fonts[]          = { "JetBrains Mono:size=11", "JoyPixels:pixelsize=11:antialias=true:autohint=true"};
 static const char dmenufont[]       = "JetBrains Mono:size=11";
@@ -28,16 +30,25 @@ static const char *colors[][3]      = {
 #define MOUSEEDGESWITCH 1  // 1 to enable, 0 to disable
 #define DRAGGEDGESWITCH 1  // 1 to enable, 0 to disable
 
-static const int hideDelay = 2000; // Delay in milliseconds before hiding windows
+/* static const char *const autostart[] = { */
+/*     "sh", "-c", "xrandr --output \"$(xrandr | awk '/ connected/ {print $1; exit}')\" --mode 1920x1080 --rate 144", NULL, */
+/*     "feh", "--bg-scale", "/home/l/Desktop/test/oglo/hyprland-rice/themes/ayu_dark/wallpaper.png", NULL, */
+/*     "unclutter", NULL, */
+/*     "picom", NULL, */
+/*     "xset", "r", "rate", "160", "60", NULL, */
+/*     NULL /\* terminate *\/ */
+/* }; */
 
 static const char *const autostart[] = {
     "sh", "-c", "xrandr --output \"$(xrandr | awk '/ connected/ {print $1; exit}')\" --mode 1920x1080 --rate 144", NULL,
-    "feh", "--bg-scale", "/home/l/Desktop/test/oglo/hyprland-rice/themes/ayu_dark/wallpaper.png", NULL,
+    "feh", "--bg-scale", "/home/l/xos/suckless/dwm/themes/ayu-dark/wallpaper.png", NULL,
     "unclutter", NULL,
-    "picom", NULL,
+    "/home/l/xos/suckless/dwm/themes/aELF/picom/picom", "--config", "/home/l/xos/suckless/dwm/themes/aELF/picom/picom.conf", NULL,
     "xset", "r", "rate", "160", "60", NULL,
+    "/home/l/xos/suckless/dwm/themes/aELF/polybar/launch.sh", "--dwm", NULL,
     NULL /* terminate */
 };
+
 
 /* tagging */
 static const char *tags[] = { "󰟜", "", "", "", "", "6", "7", "8", "9" };
@@ -82,27 +93,33 @@ static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont,
 static const char *termcmd[]  = { "st", NULL };
 static const char *boomercmd[]  = { "boomer", NULL };
 
+
 #include "selfrestart.c"
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
+    { MODKEY,                       XK_Up,     viewup,         {0} },
+    { MODKEY,                       XK_Down,   viewdown,       {0} },
     { MODKEY,                       XK_f,      viewnext,       {0} },
+    { MODKEY,                       XK_p,      viewup,         {0} },
+    { MODKEY,                       XK_n,      viewdown,       {0} },
     { MODKEY,                       XK_b,      viewprev,       {0} },
     { MODKEY|ShiftMask,             XK_f,      tagtonext,      {0} },
     { MODKEY|ShiftMask,             XK_b,      tagtoprev,      {0} },
 	{ MODKEY,                       XK_z,      spawn,          {.v = boomercmd } },
-	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
+	{ MODKEY,                       XK_x,      spawn,          {.v = dmenucmd } },
 	{ MODKEY,                       XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_m,      spawn,          {.v = termcmd } },
 	{ MODKEY|ControlMask,           XK_b,      togglebar,      {0} },
 	{ MODKEY|ShiftMask,             XK_j,      rotatestack,    {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_k,      rotatestack,    {.i = -1 } },
 	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
+	{ MODKEY,                       XK_o,      focusstack,     {.i = +1 } },
 	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
 	{ MODKEY,                       XK_i,      incnmaster,     {.i = +1 } },
 	{ MODKEY,                       XK_d,      incnmaster,     {.i = -1 } },
 	{ MODKEY,                       XK_h,      setmfact,       {.f = -0.05} },
 	{ MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
-	{ MODKEY,                       XK_Return, zoom,           {0} },
+	/* { MODKEY,                       XK_Return, zoom,           {0} }, */
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY,                       XK_q,      killclient,     {0} },
 	{ MODKEY,                       XK_t,      setlayout,      {.v = &layouts[0]} },
@@ -120,8 +137,8 @@ static const Key keys[] = {
     { MODKEY,                       XK_Left,   viewprev,       {0} },
     { MODKEY|ShiftMask,             XK_Right,  tagtonext,      {0} },
     { MODKEY|ShiftMask,             XK_Left,   tagtoprev,      {0} },
-	{ MODKEY,                       XK_minus,  smartresizegaps,{.i = -1 } },
-	{ MODKEY,                       XK_equal,  smartresizegaps,{.i = +1 } },
+	{ MODKEY,                       XK_minus,  smartresizegaps,{.i = +1 } },
+	{ MODKEY,                       XK_equal,  smartresizegaps,{.i = -1 } },
 	{ MODKEY|ShiftMask,             XK_equal,  setgaps,        {.i = 0  } },
     
 	TAGKEYS(                        XK_1,                      0)
